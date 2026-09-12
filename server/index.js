@@ -212,6 +212,56 @@ async function getActor(req) {
   };
 }
 
+async function resolveTreatingDoctor(actor, session, body = {}) {
+  if (actor.role !== 'hospital') {
+    return {
+      doctorId: session.doctorId || actor.doctorId,
+      doctorName: session.doctorName || actor.doctorName,
+    };
+  }
+
+  const requestedDoctorId = String(body.doctorId || '').trim();
+  const requestedDoctorName = String(body.doctorName || '').trim();
+  const sessionDoctorId = String(session.doctorId || '').trim();
+  const sessionDoctorName = String(session.doctorName || '').trim();
+  const targetDoctorId = requestedDoctorId || sessionDoctorId;
+  const targetDoctorName = requestedDoctorName || sessionDoctorName;
+
+  if (!targetDoctorId && !targetDoctorName) {
+    return { error: 'Select the treating doctor for this patient session.' };
+  }
+
+  const [doctors, assignments] = await Promise.all([
+    db.list('doctors'),
+    db.list('doctor_hospital_assignments', { hospitalId: actor.hospitalId }),
+  ]);
+  const activeAssignments = new Set(
+    assignments
+      .filter((assignment) => !assignment.status || ['Active', 'Accepted', 'Approved'].includes(String(assignment.status)))
+      .map((assignment) => String(assignment.doctorId || ''))
+  );
+  const doctor = doctors.find((item) =>
+    (targetDoctorId && String(item.id || item.doctorId || '') === targetDoctorId) ||
+    (targetDoctorName && sameText(item.name, targetDoctorName))
+  );
+  if (!doctor) {
+    return { error: 'Selected treating doctor was not found.' };
+  }
+  const belongsToHospital =
+    String(doctor.hospitalId || '') === String(actor.hospitalId || '') ||
+    sameText(doctor.hospitalName || doctor.hospital, actor.hospitalName) ||
+    activeAssignments.has(String(doctor.id || doctor.doctorId || ''));
+
+  if (!belongsToHospital) {
+    return { error: 'Selected doctor is not linked to this hospital.' };
+  }
+
+  return {
+    doctorId: doctor.id || doctor.doctorId || targetDoctorId,
+    doctorName: doctor.name || targetDoctorName,
+  };
+}
+
 function actorOwnsSession(actor, session) {
   if (!actor || !session) return false;
   if (actor.role === 'admin') return true;
@@ -948,6 +998,8 @@ app.post('/api/sessions/:sessionId/prescriptions', authRequired, async (req, res
   if (!medicines.length && !body.instructions) {
     return res.status(400).json({ error: 'Add at least one medicine or prescription instruction.' });
   }
+  const treatingDoctor = await resolveTreatingDoctor(actor, session, body);
+  if (treatingDoctor.error) return res.status(400).json({ error: treatingDoctor.error });
   const prescription = await db.create('prescriptions', {
     id: makeId('RX'),
     patientId: session.patientId,
@@ -956,8 +1008,8 @@ app.post('/api/sessions/:sessionId/prescriptions', authRequired, async (req, res
     sourceCollection: session.sourceCollection,
     hospitalId: session.hospitalId || actor.hospitalId,
     hospitalName: session.hospitalName || actor.hospitalName,
-    doctorId: session.doctorId || actor.doctorId,
-    doctorName: session.doctorName || actor.doctorName,
+    doctorId: treatingDoctor.doctorId,
+    doctorName: treatingDoctor.doctorName,
     prescriptionDate: formatDateTime(),
     medicines,
     instructions: body.instructions || '',
