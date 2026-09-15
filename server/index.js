@@ -102,6 +102,7 @@ function userData(user) {
     patientId: user.patientId || user.data?.patientId,
     doctorId: user.doctorId || user.data?.doctorId,
     hospitalId: user.hospitalId || user.data?.hospitalId,
+    labId: user.labId || user.data?.labId,
     ...user,
   };
 }
@@ -181,6 +182,7 @@ async function getActor(req) {
   if (!user) return null;
   let hospital = null;
   let doctor = null;
+  let lab = null;
   if (user.role === 'hospital') {
     const hospitals = await db.list('hospitals');
     hospital = hospitals.find((item) =>
@@ -199,6 +201,17 @@ async function getActor(req) {
       cleanPhone(item.phone) === cleanPhone(user.phone)
     ) || null;
   }
+  if (user.role === 'lab') {
+    const partnerships = await db.list('partnerships');
+    lab = partnerships.find((item) =>
+      item.id === user.labId ||
+      item.id === user.data?.labId ||
+      item.labId === user.labId ||
+      item.labId === user.data?.labId ||
+      sameText(item.labName || item.name, user.labName || user.data?.labName || user.name) ||
+      cleanPhone(item.phone) === cleanPhone(user.phone)
+    ) || null;
+  }
   return {
     user,
     role: user.role,
@@ -207,8 +220,11 @@ async function getActor(req) {
     hospitalName: hospital?.name || user.hospitalName || user.name,
     doctorId: user.doctorId || doctor?.id,
     doctorName: doctor?.name || user.name,
+    labId: user.labId || user.data?.labId || lab?.labId || lab?.id,
+    labName: lab?.labName || lab?.name || user.labName || user.data?.labName || user.name,
     hospital,
     doctor,
+    lab,
   };
 }
 
@@ -278,6 +294,7 @@ function actorOwnsSession(actor, session) {
       sameText(session.doctorName, actor.doctorName)
     );
   }
+  if (actor.role === 'lab') return labOwnsBooking(actor, session);
   return false;
 }
 
@@ -290,6 +307,41 @@ function normalizeSession(session, collection) {
     sessionStatus: session.sessionStatus || (isCompletedSession(session) ? 'COMPLETED' : isAuthorizedStatus(session.status) ? 'ACTIVE' : 'AUTHORIZED'),
     visitPassStatus: session.visitPassStatus || (isCompletedSession(session) ? 'EXPIRED' : isAuthorizedStatus(session.status) ? 'ACTIVE' : 'PENDING'),
   };
+}
+
+function labOwnsBooking(actor, booking) {
+  if (!actor || !booking) return false;
+  if (actor.role === 'admin') return true;
+  if (actor.role === 'patient') return String(booking.patientId || '') === String(actor.patientId || '');
+  if (actor.role !== 'lab') return false;
+  const bookingLabId = String(booking.labId || '').trim();
+  const actorLabId = String(actor.labId || '').trim();
+  if (bookingLabId && actorLabId) return bookingLabId === actorLabId;
+  if (bookingLabId && !actorLabId) return false;
+  const bookingLabName = String(booking.labName || '').trim();
+  if (!bookingLabName) return true;
+  return sameText(bookingLabName, actor.labName) || /ayudh vikas certified partner lab/i.test(bookingLabName);
+}
+
+function normalizeLabBooking(booking) {
+  if (!booking) return null;
+  const completed = isCompletedSession(booking) || ['Closed', 'Completed'].includes(String(booking.status || ''));
+  const accepted = ['Accepted', 'Verified', 'Sample Collected', 'In Progress', 'Report Uploaded', 'Closed', 'Completed'].includes(String(booking.status || ''));
+  return {
+    ...booking,
+    sessionId: booking.sessionId || booking.id,
+    sourceCollection: 'lab_bookings',
+    testName: booking.testName || booking.packageName || booking.selectedPackage || booking.selectedCategory || 'Lab Test',
+    testMode: booking.testMode || (booking.collectionType === 'home' ? 'Home Test' : 'Walk-in'),
+    patientPhone: booking.patientPhone || booking.phone || booking.mobileNumber || '',
+    sessionStatus: booking.sessionStatus || (completed ? 'COMPLETED' : accepted ? 'ACTIVE' : 'REQUESTED'),
+    visitPassStatus: booking.visitPassStatus || (completed ? 'EXPIRED' : accepted ? 'ACTIVE' : 'PENDING'),
+  };
+}
+
+async function getLabBookingsForActor(actor) {
+  const items = (await db.list('lab_bookings')).map(normalizeLabBooking);
+  return items.filter((item) => labOwnsBooking(actor, item));
 }
 
 async function findSession(sessionId) {
@@ -341,6 +393,13 @@ function canMutateSensitiveCollection(actor, collection, payload = {}, existing 
   if (actor.role === 'doctor') {
     return String(target.doctorId || actor.doctorId || '') === String(actor.doctorId || '');
   }
+  if (actor.role === 'lab') {
+    return collection === 'health_records' &&
+      (
+        String(target.labId || actor.labId || '') === String(actor.labId || '') ||
+        sameText(target.labName, actor.labName)
+      );
+  }
   return false;
 }
 
@@ -355,6 +414,15 @@ async function scopedSensitiveList(actor, collection, filter = {}) {
   }
   if (actor.role === 'doctor') {
     return rows.filter((item) => String(item.doctorId || '') === String(actor.doctorId || '') || sameText(item.doctorName, actor.doctorName));
+  }
+  if (actor.role === 'lab') {
+    return rows.filter((item) =>
+      collection === 'health_records' &&
+      (
+        String(item.labId || '') === String(actor.labId || '') ||
+        sameText(item.labName, actor.labName)
+      )
+    );
   }
   return [];
 }
@@ -485,7 +553,7 @@ app.post('/api/auth/register', async (req, res) => {
     const { valid, error } = validate(schema, body);
     if (!valid) return res.status(400).json({ error });
 
-    const name = body.fullName || body.name || body.hospitalName || body.organizationName || 'New User';
+    const name = body.fullName || body.name || body.hospitalName || body.labName || body.organizationName || 'New User';
     const email = body.email || body.contactEmail || '';
     const phone = body.mobileNumber || body.mobile || body.phone || body.contactPhone || '';
     const password = String(body.password || '');
@@ -523,6 +591,7 @@ app.post('/api/auth/register', async (req, res) => {
     const patientId = body.patientId || (role === 'patient' ? `AVP${Math.floor(100000 + Math.random() * 900000)}` : undefined);
     const doctorId = role === 'doctor' ? makeId('DOC') : undefined;
     const hospitalId = role === 'hospital' ? makeId('HOSP') : undefined;
+    const labId = role === 'lab' ? makeId('LAB') : undefined;
     const verificationToken = email ? crypto.randomBytes(32).toString('hex') : null;
     const verificationTokenExpiry = verificationToken ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() : null;
 
@@ -543,6 +612,7 @@ app.post('/api/auth/register', async (req, res) => {
         patientId,
         doctorId,
         hospitalId,
+        labId,
         roles,
         primaryRole,
         displayName: name.split(' ')[0] + (name.split(' ')[1] ? ` ${name.split(' ')[1][0]}.` : ''),
@@ -636,6 +706,28 @@ app.post('/api/auth/register', async (req, res) => {
         category: body.category,
         subscriptionPlan: body.subscriptionPlan || 'Growth',
         subscriptionAmount: Number(body.subscriptionAmount || 5999),
+      });
+    } else if (role === 'lab') {
+      await db.create('partnerships', {
+        id: labId,
+        userId: user.id,
+        role,
+        labId,
+        name: body.labName || name,
+        labName: body.labName || name,
+        licenseNumber: body.licenseNumber || '',
+        nablApproved: body.nablApproved || 'No',
+        contactPerson: body.contactPerson || name,
+        phone,
+        email,
+        district: body.district || 'Warangal',
+        address: body.fullAddress || body.address || '',
+        testCategories: body.testCategories || [],
+        homeCollectionAvailable: body.homeCollectionAvailable !== false,
+        digitalReportsTurnaround: body.digitalReportsTurnaround || 'Within 24 Hours',
+        status: 'Active',
+        verificationStatus: 'PENDING_VERIFICATION',
+        submittedAt: formatDateTime(),
       });
     } else {
       await db.create('partnerships', {
@@ -1101,12 +1193,13 @@ app.get('/api/patient/medical-feed', authRequired, async (req, res) => {
     const actor = await getActor(req);
     if (actor.role !== 'patient') return res.status(403).json({ error: 'Patient access is required.' });
     const patientId = actor.patientId;
-    const [reports, prescriptions, reminders, visits, appointments] = await Promise.all([
+    const [reports, prescriptions, reminders, visits, appointments, labBookings] = await Promise.all([
       db.list('health_records', { patientId }),
       db.list('prescriptions', { patientId }),
       db.list('reminders', { patientId }),
       db.list('visit_requests', { patientId }),
       db.list('appointments', { patientId }),
+      db.list('lab_bookings', { patientId }),
     ]);
     res.json({
       reports,
@@ -1115,12 +1208,234 @@ app.get('/api/patient/medical-feed', authRequired, async (req, res) => {
       sessions: [
         ...visits.map((item) => normalizeSession(item, 'visit_requests')),
         ...appointments.map((item) => normalizeSession(item, 'appointments')),
+        ...labBookings.map(normalizeLabBooking),
       ],
     });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Unable to load patient medical data.' });
   }
+});
+
+app.get('/api/lab/dashboard', requireRole(['lab', 'admin']), async (req, res) => {
+  try {
+    const actor = await getActor(req);
+    const bookings = (await getLabBookingsForActor(actor))
+      .sort((a, b) => String(b.updatedAt || b.createdAt || b.preferredDate || '').localeCompare(String(a.updatedAt || a.createdAt || a.preferredDate || '')));
+    const requests = bookings.filter((item) => ['Pending', 'Requested'].includes(String(item.status || 'Pending')));
+    const active = bookings.filter((item) =>
+      ['Accepted', 'Verified', 'Sample Collected', 'In Progress', 'Report Uploaded'].includes(String(item.status || ''))
+    );
+    const history = bookings.filter((item) => ['Rejected', 'Closed', 'Completed'].includes(String(item.status || '')));
+    const reports = await db.list('health_records', actor.role === 'admin' ? {} : { labId: actor.labId });
+    res.json({
+      lab: { id: actor.labId, name: actor.labName },
+      stats: {
+        pendingRequests: requests.length,
+        activeSessions: active.length,
+        completedSessions: bookings.filter((item) => ['Closed', 'Completed'].includes(String(item.status || ''))).length,
+        reportsUploaded: reports.filter((item) => item.sourceCollection === 'lab_bookings' || item.labId || item.labName).length,
+        homeTests: bookings.filter((item) => item.collectionType === 'home' || /home/i.test(String(item.testMode || ''))).length,
+        walkIns: bookings.filter((item) => item.collectionType === 'lab' || /walk/i.test(String(item.testMode || ''))).length,
+      },
+      requests,
+      active,
+      history,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Unable to load lab dashboard.' });
+  }
+});
+
+app.get('/api/lab/requests', requireRole(['lab', 'admin']), async (req, res) => {
+  try {
+    const actor = await getActor(req);
+    const items = await getLabBookingsForActor(actor);
+    res.json({ items });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Unable to load lab test requests.' });
+  }
+});
+
+async function assertLabBookingAccess(req, res, bookingId, { allowCompleted = false } = {}) {
+  const actor = await getActor(req);
+  if (!actor || !['lab', 'admin'].includes(actor.role)) {
+    res.status(403).json({ error: 'Only lab users can manage lab test sessions.' });
+    return null;
+  }
+  const raw = await db.get('lab_bookings', bookingId);
+  if (!raw) {
+    res.status(404).json({ error: 'Lab booking not found.' });
+    return null;
+  }
+  const booking = normalizeLabBooking(raw);
+  if (!labOwnsBooking(actor, booking)) {
+    res.status(403).json({ error: 'This lab booking is not assigned to your lab.' });
+    return null;
+  }
+  if (!allowCompleted && isCompletedSession(booking)) {
+    res.status(409).json({ error: 'This lab test session is already closed.' });
+    return null;
+  }
+  return { actor, booking };
+}
+
+app.patch('/api/lab/bookings/:id/accept', requireRole(['lab', 'admin']), async (req, res) => {
+  const result = await assertLabBookingAccess(req, res, req.params.id);
+  if (!result) return;
+  const { actor, booking } = result;
+  if (!['Pending', 'Requested'].includes(String(booking.status || 'Pending'))) {
+    return res.status(400).json({ error: 'This lab request is already processed.' });
+  }
+  const acceptedAt = formatDateTime();
+  const item = await db.update('lab_bookings', booking.id, {
+    labId: booking.labId || actor.labId,
+    labName: booking.labName || actor.labName,
+    status: 'Accepted',
+    sessionStatus: 'ACTIVE',
+    visitPassStatus: 'ACTIVE',
+    acceptedAt,
+    acceptedBy: actor.user.id,
+    labNotes: req.body?.labNotes || 'Lab request accepted. Patient verification is required before sample collection/testing.',
+    tokenNumber: booking.tokenNumber || `LAB-${Math.floor(100 + Math.random() * 900)}`,
+  });
+  res.json({ item: normalizeLabBooking(item) });
+});
+
+app.patch('/api/lab/bookings/:id/reject', requireRole(['lab', 'admin']), async (req, res) => {
+  const result = await assertLabBookingAccess(req, res, req.params.id, { allowCompleted: true });
+  if (!result) return;
+  const { actor, booking } = result;
+  const reason = String(req.body?.reason || req.body?.rejectionReason || '').trim();
+  if (reason.length < 2) return res.status(400).json({ error: 'Rejection reason is required.' });
+  if (isCompletedSession(booking)) return res.status(409).json({ error: 'Completed sessions cannot be rejected.' });
+  const item = await db.update('lab_bookings', booking.id, {
+    labId: booking.labId || actor.labId,
+    labName: booking.labName || actor.labName,
+    status: 'Rejected',
+    sessionStatus: 'REJECTED',
+    rejectedAt: formatDateTime(),
+    rejectedBy: actor.user.id,
+    rejectionReason: reason,
+  });
+  res.json({ item: normalizeLabBooking(item) });
+});
+
+app.patch('/api/lab/bookings/:id/verify', requireRole(['lab', 'admin']), async (req, res) => {
+  const result = await assertLabBookingAccess(req, res, req.params.id);
+  if (!result) return;
+  const { actor, booking } = result;
+  const method = String(req.body?.method || 'mobile').trim();
+  const value = String(req.body?.value || '').trim();
+  if (!value) return res.status(400).json({ error: 'Enter patient mobile, patient ID, or card value to verify.' });
+
+  const phoneOk = cleanPhone(value) && cleanPhone(booking.phone || booking.patientPhone).endsWith(cleanPhone(value).slice(-10));
+  const idOk = String(booking.patientId || '').toLowerCase() === value.toLowerCase();
+  const cardOk = value.toUpperCase().includes(String(booking.patientId || '').toUpperCase()) || value.length >= 6;
+  if (method === 'mobile' && !phoneOk) return res.status(400).json({ error: 'Mobile number does not match this booking.' });
+  if (method === 'patientId' && !idOk) return res.status(400).json({ error: 'Patient ID does not match this booking.' });
+  if (method === 'card' && !cardOk) return res.status(400).json({ error: 'Card verification failed for this patient.' });
+
+  const verifiedAt = formatDateTime();
+  const item = await db.update('lab_bookings', booking.id, {
+    labId: booking.labId || actor.labId,
+    labName: booking.labName || actor.labName,
+    status: 'Verified',
+    sessionStatus: 'ACTIVE',
+    visitPassStatus: 'ACTIVE',
+    patientVerified: true,
+    verifiedAt,
+    verifiedBy: actor.user.id,
+    verificationMethod: method,
+    sampleStatus: booking.collectionType === 'home' ? 'Home sample collection pending' : 'Walk-in sample collection pending',
+  });
+  res.json({ item: normalizeLabBooking(item) });
+});
+
+app.post('/api/lab/bookings/:id/report', requireRole(['lab', 'admin']), async (req, res) => {
+  const result = await assertLabBookingAccess(req, res, req.params.id);
+  if (!result) return;
+  const { actor, booking } = result;
+  if (!booking.patientVerified) {
+    return res.status(403).json({ error: 'Verify the patient before uploading or writing test results.' });
+  }
+  const body = req.body || {};
+  const method = body.method || (body.file ? 'file' : body.documentLink ? 'link' : 'manual');
+  if (method === 'link') {
+    try {
+      const url = new URL(body.documentLink);
+      if (!['http:', 'https:'].includes(url.protocol)) throw new Error('Invalid protocol');
+    } catch {
+      return res.status(400).json({ error: 'Please provide a valid http(s) report link.' });
+    }
+  }
+  if (method === 'file' && (!body.file?.name || !body.file?.data)) {
+    return res.status(400).json({ error: 'Report file name and data are required.' });
+  }
+  if (method === 'manual' && !String(body.reportInformation || body.manualEntry || '').trim()) {
+    return res.status(400).json({ error: 'Manual report/result text is required.' });
+  }
+
+  const report = await db.create('health_records', {
+    id: makeId('REC'),
+    patientId: booking.patientId,
+    patientName: booking.patientName,
+    sessionId: booking.sessionId || booking.id,
+    sourceCollection: 'lab_bookings',
+    labBookingId: booking.id,
+    labId: booking.labId || actor.labId,
+    labName: booking.labName || actor.labName,
+    hospitalName: booking.labName || actor.labName,
+    testName: booking.testName,
+    title: body.title || `${booking.testName} Results`,
+    type: body.reportType || 'Lab Report',
+    reportType: body.reportType || booking.testName,
+    reportMethod: method,
+    reportInformation: body.reportInformation || body.manualEntry || '',
+    documentLink: method === 'link' ? body.documentLink : '',
+    file: method === 'file' ? body.file.name : body.fileName || '',
+    fileMeta: method === 'file' ? { name: body.file.name, type: body.file.type, size: body.file.size } : undefined,
+    fileData: method === 'file' ? body.file.data : undefined,
+    facility: booking.labName || actor.labName || 'Ayudh Vikas Lab Network',
+    date: formatDateTime(),
+    status: 'Available',
+    uploadedBy: actor.user.id,
+    uploadedByRole: actor.role,
+  });
+  const updated = await db.update('lab_bookings', booking.id, {
+    status: 'Report Uploaded',
+    reportStatus: 'Uploaded',
+    reportId: report.id,
+    reportUploadedAt: report.date,
+    sampleStatus: 'Report ready',
+  });
+  res.status(201).json({ item: report, booking: normalizeLabBooking(updated) });
+});
+
+app.post('/api/lab/bookings/:id/close', requireRole(['lab', 'admin']), async (req, res) => {
+  const result = await assertLabBookingAccess(req, res, req.params.id);
+  if (!result) return;
+  const { actor, booking } = result;
+  const reports = await db.list('health_records', { sessionId: booking.sessionId || booking.id });
+  const hasReport = reports.some((item) => item.sourceCollection === 'lab_bookings' || item.labBookingId === booking.id);
+  if (!hasReport && !booking.reportId) {
+    return res.status(400).json({ error: 'Upload, link, or write the test report before closing this lab session.' });
+  }
+  const closedAt = formatDateTime();
+  const item = await db.update('lab_bookings', booking.id, {
+    status: 'Completed',
+    sessionStatus: 'COMPLETED',
+    completedAt: closedAt,
+    completedBy: actor.user.id,
+    completedByRole: actor.role,
+    closedAt,
+    visitPassStatus: 'EXPIRED',
+    visitPassExpiredAt: closedAt,
+    historyRecorded: true,
+  });
+  res.json({ item: normalizeLabBooking(item), reports });
 });
 
 app.get('/api/users', adminRequired, async (req, res) => {
@@ -1702,7 +2017,7 @@ app.post('/api/records/:collection', async (req, res) => {
     if (collection === 'appointments') payload.status = 'Pending';
     if (collection === 'visit_requests') payload.status = 'Pending';
     if (collection === 'ambulance_bookings') payload.status = 'Dispatched';
-    if (collection === 'lab_bookings') payload.status = 'Confirmed';
+    if (collection === 'lab_bookings') payload.status = 'Pending';
     if (collection === 'home_care_bookings') payload.status = 'Scheduled';
     if (collection === 'leads') payload.status = payload.status || 'New';
     if (collection === 'emergencies') payload.status = 'Open';
@@ -1716,6 +2031,14 @@ app.post('/api/records/:collection', async (req, res) => {
   }
   if (collection === 'appointments' && !payload.tokenNumber) {
     payload.tokenNumber = `TK-${Math.floor(10 + Math.random() * 90)}`;
+  }
+  if (collection === 'lab_bookings') {
+    payload.testName = payload.testName || payload.packageName || payload.selectedPackage || payload.selectedCategory || 'Lab Test';
+    payload.testMode = payload.testMode || (payload.collectionType === 'home' ? 'Home Test' : 'Walk-in');
+    payload.sessionStatus = payload.sessionStatus || 'REQUESTED';
+    payload.visitPassStatus = payload.visitPassStatus || 'PENDING';
+    payload.reportStatus = payload.reportStatus || 'Pending';
+    payload.requestedAt = payload.requestedAt || formatDateTime();
   }
   if (['visit_requests', 'appointments'].includes(collection) && isAuthorizedStatus(payload.status)) {
     payload.authorizedAt = payload.authorizedAt || formatDateTime();
@@ -1961,12 +2284,60 @@ app.use((req, res, next) => {
   proxyToVite(req, res);
 });
 
+async function ensureDemoLabAccount() {
+  const existing = await db.findUserByIdentifier('lab@ayudhvikas.org');
+  if (!existing) {
+    await db.createUser({
+      id: 'user-lab-1',
+      role: 'lab',
+      roles: ['lab'],
+      primaryRole: 'lab',
+      name: 'Ayudh Vikas Diagnostic Lab',
+      email: 'lab@ayudhvikas.org',
+      phone: '9876500002',
+      password_hash: hashPassword('lab123'),
+      emailVerified: true,
+      data: {
+        labId: 'LAB-DEMO-1',
+        labName: 'Ayudh Vikas Diagnostic Lab',
+        identifier: 'lab@ayudhvikas.org',
+        district: 'Warangal',
+      },
+    });
+  }
+
+  const labProfile = await db.get('partnerships', 'LAB-DEMO-1');
+  if (!labProfile) {
+    await db.create('partnerships', {
+      id: 'LAB-DEMO-1',
+      userId: 'user-lab-1',
+      role: 'lab',
+      labId: 'LAB-DEMO-1',
+      name: 'Ayudh Vikas Diagnostic Lab',
+      labName: 'Ayudh Vikas Diagnostic Lab',
+      licenseNumber: 'AVF-LAB-2026-001',
+      nablApproved: 'Yes',
+      contactPerson: 'Lab Operations Team',
+      phone: '9876500002',
+      email: 'lab@ayudhvikas.org',
+      district: 'Warangal',
+      address: 'Ayudh Vikas Health Care Network, Warangal',
+      testCategories: ['Hematology', 'Biochemistry', 'Microbiology', 'Radiology / X-Ray'],
+      homeCollectionAvailable: true,
+      digitalReportsTurnaround: 'Within 6 Hours',
+      status: 'Active',
+      verificationStatus: 'VERIFIED',
+    });
+  }
+}
+
 async function start() {
   db = createDb((event) => {
     broadcast({ ...event, type: 'record:change', event: 'record_updated' });
   });
   await db.connect();
   await seedDatabase(db, async (plain) => hashPassword(plain));
+  await ensureDemoLabAccount();
   try {
     await migrateToNewSchema(db);
   } catch (err) {

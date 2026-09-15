@@ -73,6 +73,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
         cleanIdentifier.toLowerCase().includes('kims') ||
         cleanIdentifier.toLowerCase().includes('marketing') ||
         cleanIdentifier.toLowerCase().includes('mkt') ||
+        cleanIdentifier.toLowerCase().includes('lab') ||
         cleanIdentifier.toLowerCase().includes('admin');
 
       if (isNumeric && cleanIdentifier.length !== 10) {
@@ -139,6 +140,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   const handleAutoFillMarketing = () => {
     setIdentifier('marketing@ayudhvikasfoundation.org');
     setPassword('marketing123');
+    setErrors({});
+  };
+
+  const handleAutoFillLab = () => {
+    setIdentifier('lab@ayudhvikas.org');
+    setPassword('lab123');
     setErrors({});
   };
 
@@ -419,6 +426,20 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                     </div>
                     <div className="text-[9px] text-slate-500 font-medium truncate">
                       Rohit Kumar
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleAutoFillLab}
+                    className="bg-white hover:bg-cyan-50 text-slate-700 hover:text-cyan-900 border border-slate-200 hover:border-cyan-300 rounded-lg p-2.5 min-h-[58px] text-left transition-all shadow-2xs cursor-pointer group"
+                  >
+                    <div className="text-[11px] font-black text-cyan-900 group-hover:text-cyan-950 flex items-center gap-1 min-w-0">
+                      <TestTube className="w-3 h-3 text-cyan-600" />
+                      <span>Lab Team</span>
+                    </div>
+                    <div className="text-[9px] text-slate-500 font-medium truncate">
+                      lab@ayudhvikas.org
                     </div>
                   </button>
 

@@ -9,7 +9,7 @@ export const ROLE_HOME: Record<string, string> = {
   volunteer: '/community/dashboard',
   social_organizer: '/community/dashboard',
   ambulance: '/',
-  lab: '/',
+  lab: '/lab/dashboard',
 };
 
 export function roleHome(role?: string | null) {

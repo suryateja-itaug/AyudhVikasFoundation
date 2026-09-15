@@ -15,6 +15,7 @@ import { PatientDashboard } from '../components/PatientDashboard';
 import { DoctorDashboard } from '../components/DoctorDashboard';
 import { MarketingDashboard } from '../components/MarketingDashboard';
 import { HospitalDashboard } from '../components/HospitalDashboard';
+import { LabDashboard } from '../components/LabDashboard';
 import { PartnerWithUsPage } from '../components/PartnerWithUsPage';
 import { BookAppointmentPage } from '../components/BookAppointmentPage';
 import { AmbulanceBookingPage } from '../components/AmbulanceBookingPage';
@@ -506,6 +507,16 @@ export const AppRoutes: React.FC = () => {
 
         <Route element={<PrivateRoute requiredRole="marketing" />}>
           <Route path="/marketing/dashboard" element={<div className="min-h-screen bg-[#f3f5f8] font-sans text-slate-800 flex flex-col"><MarketingDashboard onLogout={handleLogout} onNavigateHome={handleBackToHome} /></div>} />
+        </Route>
+
+        <Route element={<PrivateRoute requiredRole="lab" />}>
+          <Route path="/lab/dashboard" element={<LabDashboard onLogout={handleLogout} onNavigateHome={handleBackToHome} initialNav="Dashboard" />} />
+          <Route path="/lab/requests" element={<LabDashboard onLogout={handleLogout} onNavigateHome={handleBackToHome} initialNav="Requests" />} />
+          <Route path="/lab/verification" element={<LabDashboard onLogout={handleLogout} onNavigateHome={handleBackToHome} initialNav="Verification" />} />
+          <Route path="/lab/reports" element={<LabDashboard onLogout={handleLogout} onNavigateHome={handleBackToHome} initialNav="Reports" />} />
+          <Route path="/lab/history" element={<LabDashboard onLogout={handleLogout} onNavigateHome={handleBackToHome} initialNav="History" />} />
+          <Route path="/lab/profile" element={<LabDashboard onLogout={handleLogout} onNavigateHome={handleBackToHome} initialNav="Profile" />} />
+          <Route path="/lab/support" element={<LabDashboard onLogout={handleLogout} onNavigateHome={handleBackToHome} initialNav="Support" />} />
         </Route>
 
         <Route element={<PrivateRoute requiredRole={['volunteer', 'social_organizer']} />}>

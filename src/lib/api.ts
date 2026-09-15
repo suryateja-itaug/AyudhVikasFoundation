@@ -154,6 +154,34 @@ export const api = {
     }),
   patientMedicalFeed: () =>
     request<{ reports: any[]; prescriptions: any[]; reminders: any[]; sessions: any[] }>('/api/patient/medical-feed'),
+  labSummary: () =>
+    request<{ lab: any; stats: any; requests: any[]; active: any[]; history: any[] }>('/api/lab/dashboard'),
+  labRequests: () => request<{ items: any[] }>('/api/lab/requests'),
+  acceptLabBooking: (id: string, payload: any = {}) =>
+    request<{ item: any }>(`/api/lab/bookings/${encodeURIComponent(id)}/accept`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    }),
+  rejectLabBooking: (id: string, payload: any = {}) =>
+    request<{ item: any }>(`/api/lab/bookings/${encodeURIComponent(id)}/reject`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    }),
+  verifyLabPatient: (id: string, payload: any) =>
+    request<{ item: any }>(`/api/lab/bookings/${encodeURIComponent(id)}/verify`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    }),
+  createLabReport: (id: string, payload: any) =>
+    request<{ item: any; booking: any }>(`/api/lab/bookings/${encodeURIComponent(id)}/report`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  closeLabSession: (id: string) =>
+    request<{ item: any; reports: any[] }>(`/api/lab/bookings/${encodeURIComponent(id)}/close`, {
+      method: 'POST',
+      body: JSON.stringify({}),
+    }),
   searchHospitals: (filter: Record<string, string | number | undefined> = {}) => {
     const params = new URLSearchParams();
     Object.entries(filter).forEach(([k, v]) => {

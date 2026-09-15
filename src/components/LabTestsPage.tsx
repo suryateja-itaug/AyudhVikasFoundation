@@ -160,10 +160,15 @@ export const LabTestsPage: React.FC<LabTestsPageProps> = ({
       medicalCondition,
       previousReports,
       packageName: testLabel,
+      testName: testLabel,
       labName: labLabel,
+      testMode: collectionType === 'home' ? 'Home Test' : 'Walk-in',
       totalAmount: '₹1,499',
       patientId: userProfile.patientId,
-      status: 'Confirmed',
+      status: 'Pending',
+      sessionStatus: 'REQUESTED',
+      visitPassStatus: 'PENDING',
+      reportStatus: 'Pending',
     });
 
     setBookingConfirmation({
