@@ -1022,8 +1022,8 @@ export const HospitalDashboard: React.FC<HospitalDashboardProps> = ({
       </header>
 
       <div className="w-full flex-1 flex p-3 sm:p-4 gap-4 items-start">
-        <aside className={`${sidebarOpen ? 'w-56' : 'w-16'} shrink-0 transition-all duration-200 space-y-3 sticky top-16 hidden md:block`}>
-          <div className="bg-white rounded-lg border border-slate-200 p-2 shadow-sm space-y-1">
+        <aside className={`${sidebarOpen ? 'w-56' : 'w-16'} shrink-0 transition-all duration-200 space-y-3 sticky top-16 hidden md:flex h-[calc(100vh-4rem)] max-h-[calc(100vh-4rem)] overflow-hidden flex-col`}>
+          <div className="bg-white rounded-lg border border-slate-200 p-2 shadow-sm space-y-1 flex-1 overflow-y-auto min-h-0">
             {navItems.map((item) => {
               const Icon = item.icon;
               const active = activeNav === item.label;
@@ -1054,7 +1054,7 @@ export const HospitalDashboard: React.FC<HospitalDashboardProps> = ({
           </div>
 
           {sidebarOpen && (
-            <div className="bg-[#132d4b] text-white rounded-lg p-3 shadow-sm text-center">
+            <div className="bg-[#132d4b] text-white rounded-lg p-3 shadow-sm text-center shrink-0">
               <div className="w-8 h-8 mx-auto rounded-full bg-blue-500/20 text-blue-200 flex items-center justify-center mb-2">
                 <Headphones className="w-4 h-4" />
               </div>

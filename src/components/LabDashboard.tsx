@@ -190,8 +190,8 @@ export const LabDashboard: React.FC<LabDashboardProps> = ({ onLogout, onNavigate
       </header>
 
       <div className="flex">
-        <aside className={`${sidebarOpen ? 'w-64' : 'w-20'} bg-[#0d2547] min-h-[calc(100vh-64px)] p-4 transition-all`}>
-          <nav className="space-y-2">
+        <aside className={`${sidebarOpen ? 'w-64' : 'w-20'} bg-[#0d2547] h-[calc(100vh-64px)] max-h-[calc(100vh-64px)] p-4 transition-all sticky top-16 overflow-hidden`}>
+          <nav className="space-y-2 h-full overflow-y-auto">
             {navItems.map((item) => {
               const Icon = item.icon;
               const active = activeNav === item.label;

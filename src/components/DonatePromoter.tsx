@@ -71,9 +71,15 @@ export const DonatePromoter: React.FC<DonatePromoterProps> = ({ activeModal }) =
 
   if (disabled || closed) return null;
 
-  const openDonate = () => navigate('/donate', {
-    state: { from: `${location.pathname}${location.search}${location.hash}` },
-  });
+  const openDonate = () => {
+    const from = `${location.pathname}${location.search}${location.hash}`;
+    try {
+      sessionStorage.setItem('ayudh_donate_from', from);
+    } catch {
+      /* ignore storage restrictions */
+    }
+    navigate('/donate', { state: { from } });
+  };
 
   return (
     <>

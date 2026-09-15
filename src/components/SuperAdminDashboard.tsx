@@ -421,9 +421,9 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
         {/* ======================================================================= */}
         {/* SIDEBAR (Exact Navy #11284d / Dark Blue Theme from Image) */}
         {/* ======================================================================= */}
-        <aside className="w-64 bg-[#0e2343] text-slate-300 shrink-0 flex flex-col justify-between overflow-y-auto hidden md:flex border-r border-[#1a355d] select-none text-xs">
+        <aside className="w-64 bg-[#0e2343] text-slate-300 shrink-0 flex flex-col justify-between overflow-hidden hidden md:flex border-r border-[#1a355d] select-none text-xs sticky top-[61px] h-[calc(100vh-61px)] max-h-[calc(100vh-61px)]">
           
-          <div className="p-3.5 space-y-4">
+          <div className="p-3.5 space-y-4 flex-1 overflow-y-auto min-h-0">
             
             {/* Top Dashboard Pill (Active Highlight) */}
             <button
@@ -737,7 +737,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
           </div>
 
           {/* Bottom Logout Button */}
-          <div className="p-3.5 border-t border-[#1a355d]">
+          <div className="p-3.5 border-t border-[#1a355d] shrink-0 bg-[#0e2343]">
             <button
               onClick={onLogout}
               className="w-full bg-[#1b3d6b] hover:bg-[#234e88] text-white font-bold py-2.5 px-3 rounded-xl flex items-center justify-start gap-2.5 text-xs transition-colors cursor-pointer shadow-sm"
