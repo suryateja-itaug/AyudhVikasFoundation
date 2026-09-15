@@ -39,6 +39,7 @@ export const PATIENT_TAB_PATHS: Record<string, string> = {
   feedback: '/patient/feedback',
   downloads: '/patient/downloads',
   settings: '/patient/settings',
+  donation: '/donate',
 };
 
 export const PATIENT_PATH_TABS: Record<string, string> = Object.entries(PATIENT_TAB_PATHS).reduce(

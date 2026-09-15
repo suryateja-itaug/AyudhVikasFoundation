@@ -32,6 +32,7 @@ import {
 import { ActiveModal } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { BrandLogo } from './BrandLogo';
+import { Link } from 'react-router-dom';
 
 interface LoginPageProps {
   onBackToHome: () => void;
@@ -485,6 +486,21 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                     </div>
                   </button>
                 </div>
+              </div>
+
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 flex flex-col sm:flex-row sm:items-center gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-black text-emerald-900">Your kindness can become medicine, food, or one hospital visit.</div>
+                  <div className="text-[10.5px] font-bold text-emerald-700 mt-0.5">మీ చిన్న సహాయం ఒక కుటుంబానికి పెద్ద ఆశగా మారుతుంది.</div>
+                </div>
+                <Link
+                  to="/donate"
+                  state={{ from: '/login' }}
+                  className="h-9 px-4 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-black flex items-center justify-center gap-2"
+                >
+                  <HeartHandshake className="w-4 h-4" />
+                  Donate
+                </Link>
               </div>
 
               {/* General Error Message if any */}

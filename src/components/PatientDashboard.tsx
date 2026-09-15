@@ -55,6 +55,7 @@ import { BookAppointmentPage } from './BookAppointmentPage';
 import { HomeServicePage } from './HomeServicePage';
 import { PatientInsuranceBookingPage } from './PatientInsuranceBookingPage';
 import { HospitalSearchVisitSection } from './HospitalSearchVisitSection';
+import { DonationPage } from './DonationPage';
 import { Home } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useLiveData } from '../context/LiveDataContext';
@@ -252,6 +253,7 @@ export const PatientDashboard: React.FC<PatientDashboardProps> = ({
     { id: 'wallet', label: 'Wallet & Payments', icon: Wallet },
     { id: 'insurance', label: 'Insurance Details', icon: ShieldCheck },
     { id: 'emergency', label: 'Emergency Support', icon: AlertTriangle, highlight: true },
+    { id: 'donation', label: 'Donate & Support', icon: HeartHandshake },
     { id: 'tickets', label: 'My Tickets / Queries', icon: HelpCircle },
     { id: 'feedback', label: 'Feedback', icon: MessageSquareQuote },
     { id: 'downloads', label: 'Downloads', icon: Download },
@@ -743,6 +745,18 @@ export const PatientDashboard: React.FC<PatientDashboardProps> = ({
                 onNavigateDashboard={() => handleSidebarClick('dashboard')}
                 onLogout={onLogout}
                 isDashboardContext={true}
+              />
+            </div>
+          )}
+
+          {activeSidebarTab === 'donation' && (
+            <div className="p-0 animate-fadeIn">
+              <DonationPage
+                hideHeader={true}
+                onBackToHome={() => {
+                  if ((window.history.state?.idx || 0) > 0) window.history.back();
+                  else handleSidebarClick('dashboard');
+                }}
               />
             </div>
           )}

@@ -115,6 +115,8 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   const [userRoleFilter, setUserRoleFilter] = useState('All');
   const [editingUser, setEditingUser] = useState<any | null>(null);
   const [newUser, setNewUser] = useState({ name: '', email: '', phone: '', role: 'patient', password: 'Password@123', status: 'Active' });
+  const [showSupportSeekers, setShowSupportSeekers] = useState(false);
+  const [selectedSupportSeekerId, setSelectedSupportSeekerId] = useState<string | null>(null);
 
   // Form states
   const [newDoctorName, setNewDoctorName] = useState('');
@@ -164,6 +166,16 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     const matchesRole = userRoleFilter === 'All' || item.role === userRoleFilter;
     return matchesSearch && matchesRole;
   });
+
+  const supportSeekers = (collections.enquiries || [])
+    .filter((item: any) => item.type === 'support_seeker')
+    .sort((a: any, b: any) => String(b.requestedAt || b.createdAt || '').localeCompare(String(a.requestedAt || a.createdAt || '')));
+  const selectedSupportSeeker = supportSeekers.find((item: any) => item.id === selectedSupportSeekerId) || null;
+
+  const updateSupportSeekerStatus = async (item: any, status: string) => {
+    await update('enquiries', item.id, { ...item, status });
+    showToast(`Support request marked ${status}`);
+  };
 
   const handleCreateAdminUser = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -790,6 +802,18 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                   </p>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-2">
+                  <button
+                    onClick={() => {
+                      setShowSupportSeekers((value) => !value);
+                      setSelectedSupportSeekerId(null);
+                    }}
+                    className={`px-3 py-2 rounded-lg text-xs font-black flex items-center gap-1.5 cursor-pointer ${
+                      showSupportSeekers ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                    }`}
+                  >
+                    <HelpCircle className="w-3.5 h-3.5" />
+                    Support Seekers ({supportSeekers.length})
+                  </button>
                   <div className="relative">
                     <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                     <input
@@ -818,6 +842,130 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                 </div>
               </div>
 
+              {showSupportSeekers ? (
+                <div className="p-4 bg-slate-50">
+                  {selectedSupportSeeker ? (
+                    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                      <div className="p-4 border-b border-slate-100 flex flex-col md:flex-row md:items-start justify-between gap-3">
+                        <div>
+                          <button
+                            onClick={() => setSelectedSupportSeekerId(null)}
+                            className="text-xs font-black text-blue-700 flex items-center gap-1 mb-2"
+                          >
+                            <ArrowUpRight className="w-3.5 h-3.5 rotate-180" />
+                            Back to seekers
+                          </button>
+                          <h4 className="text-base font-black text-slate-900">{selectedSupportSeeker.fullName || 'Support Seeker'}</h4>
+                          <p className="text-xs font-semibold text-slate-500">
+                            {selectedSupportSeeker.supportCategory || 'Support request'} · {selectedSupportSeeker.priority || 'Standard'}
+                          </p>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => updateSupportSeekerStatus(selectedSupportSeeker, 'In Review')}
+                            className="px-3 py-2 rounded-lg bg-blue-50 text-blue-700 text-xs font-black flex items-center gap-1"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            In Review
+                          </button>
+                          <button
+                            onClick={() => updateSupportSeekerStatus(selectedSupportSeeker, 'Contacted')}
+                            className="px-3 py-2 rounded-lg bg-emerald-50 text-emerald-700 text-xs font-black flex items-center gap-1"
+                          >
+                            <Check className="w-3.5 h-3.5" />
+                            Contacted
+                          </button>
+                        </div>
+                      </div>
+                      <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                        {[
+                          ['Full Name', selectedSupportSeeker.fullName],
+                          ['Phone', selectedSupportSeeker.phone],
+                          ['Aadhaar', selectedSupportSeeker.aadhaarNumber],
+                          ['Address', selectedSupportSeeker.presentAddress],
+                          ['Category', selectedSupportSeeker.supportCategory],
+                          ['Priority', selectedSupportSeeker.priority],
+                          ['Status', selectedSupportSeeker.status || 'New'],
+                          ['Requested At', String(selectedSupportSeeker.requestedAt || selectedSupportSeeker.createdAt || '').slice(0, 16)],
+                        ].map(([label, value]) => (
+                          <div key={label} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                            <div className="text-[10px] uppercase font-black text-slate-400">{label}</div>
+                            <div className="font-black text-slate-900 mt-1 break-words">{value || 'Not provided'}</div>
+                          </div>
+                        ))}
+                        <div className="md:col-span-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                          <div className="text-[10px] uppercase font-black text-slate-400">Need Description</div>
+                          <div className="font-bold text-slate-800 mt-1 whitespace-pre-wrap">{selectedSupportSeeker.needDescription || 'Not provided'}</div>
+                        </div>
+                        <div className="md:col-span-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                          <div className="text-[10px] uppercase font-black text-slate-400">Uploaded Proofs</div>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {Object.entries(selectedSupportSeeker.documents || {}).length ? Object.entries(selectedSupportSeeker.documents || {}).map(([key, value]) => (
+                              <span key={key} className="px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-700 font-black">
+                                {String(value)}
+                              </span>
+                            )) : <span className="font-bold text-slate-500">No documents uploaded.</span>}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                      <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+                        <div>
+                          <h4 className="text-sm font-black text-slate-900">Support Seekers</h4>
+                          <p className="text-[11px] font-semibold text-slate-500">Requests submitted from the donation support page.</p>
+                        </div>
+                        <span className="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-100 text-[10px] font-black">
+                          {supportSeekers.length} requests
+                        </span>
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs">
+                          <thead className="bg-slate-100 text-slate-500 uppercase text-[10px] font-black">
+                            <tr>
+                              <th className="text-left px-4 py-2">Seeker</th>
+                              <th className="text-left px-4 py-2">Support</th>
+                              <th className="text-left px-4 py-2">Priority</th>
+                              <th className="text-left px-4 py-2">Status</th>
+                              <th className="text-right px-4 py-2">Action</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {supportSeekers.map((item: any) => (
+                              <tr key={item.id} className="hover:bg-slate-50">
+                                <td className="px-4 py-3">
+                                  <div className="font-black text-slate-900">{item.fullName || 'Support Seeker'}</div>
+                                  <div className="text-[10px] text-slate-500 font-semibold">{item.phone || 'No phone'}</div>
+                                </td>
+                                <td className="px-4 py-3 font-bold text-slate-700">{item.supportCategory || 'Not selected'}</td>
+                                <td className="px-4 py-3">
+                                  <span className="px-2 py-1 rounded-md bg-red-50 text-red-700 border border-red-100 text-[10px] font-black">{item.priority || 'Standard'}</span>
+                                </td>
+                                <td className="px-4 py-3">
+                                  <span className="px-2 py-1 rounded-md bg-blue-50 text-blue-700 border border-blue-100 text-[10px] font-black">{item.status || 'New'}</span>
+                                </td>
+                                <td className="px-4 py-3 text-right">
+                                  <button onClick={() => setSelectedSupportSeekerId(item.id)} className="px-2.5 py-1.5 rounded-lg bg-[#0f2e5a] text-white font-black inline-flex items-center gap-1">
+                                    <Eye className="w-3 h-3" />
+                                    View
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                            {!supportSeekers.length && (
+                              <tr>
+                                <td colSpan={5} className="px-4 py-8 text-center text-slate-500 font-bold">No support seekers yet.</td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+              <>
               <form onSubmit={handleCreateAdminUser} className="p-4 bg-slate-50 border-b border-slate-200 grid grid-cols-1 md:grid-cols-6 gap-2 text-xs">
                 <input required value={newUser.name} onChange={(e) => setNewUser({ ...newUser, name: e.target.value })} placeholder="Full name" className="px-3 py-2 rounded-lg border border-slate-200 font-semibold" />
                 <input value={newUser.email} onChange={(e) => setNewUser({ ...newUser, email: e.target.value })} placeholder="Email" className="px-3 py-2 rounded-lg border border-slate-200 font-semibold" />
@@ -882,6 +1030,8 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                   </tbody>
                 </table>
               </div>
+              </>
+              )}
             </section>
           )}
 

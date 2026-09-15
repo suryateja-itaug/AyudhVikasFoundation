@@ -16,6 +16,9 @@ import { DoctorDashboard } from '../components/DoctorDashboard';
 import { MarketingDashboard } from '../components/MarketingDashboard';
 import { HospitalDashboard } from '../components/HospitalDashboard';
 import { LabDashboard } from '../components/LabDashboard';
+import { DonationPage } from '../components/DonationPage';
+import { DonatePromoter } from '../components/DonatePromoter';
+import { RoleDonationShell } from '../components/RoleDonationShell';
 import { PartnerWithUsPage } from '../components/PartnerWithUsPage';
 import { BookAppointmentPage } from '../components/BookAppointmentPage';
 import { AmbulanceBookingPage } from '../components/AmbulanceBookingPage';
@@ -216,6 +219,19 @@ export const AppRoutes: React.FC = () => {
     setActiveTab('hospitals');
     navigate('/partner-hospitals');
   };
+  const handleBackFromDonation = () => {
+    const state = location.state as { from?: string } | null;
+    const from = state?.from;
+    if (from && from !== location.pathname) {
+      navigate(from, { replace: true });
+      return;
+    }
+    if ((window.history.state?.idx || 0) > 0) {
+      navigate(-1);
+      return;
+    }
+    navigate(isLoggedIn && !user?.isGuest ? roleHome(userRole) : '/');
+  };
 
   const handleSetActiveTab = (tab: string) => {
     if (tab === 'membership' || tab === 'community') {
@@ -385,6 +401,21 @@ export const AppRoutes: React.FC = () => {
     onLogout: handleLogout,
   };
 
+  const DonationRoute = isLoggedIn && !user?.isGuest && userRole === 'patient' ? (
+    <PatientArea {...patientAreaProps} />
+  ) : isLoggedIn && !user?.isGuest ? (
+    <RoleDonationShell
+      role={userRole}
+      user={user}
+      onLogout={handleLogout}
+      onNavigateHome={handleBackToHome}
+    >
+      <DonationPage onBackToHome={handleBackFromDonation} hideHeader />
+    </RoleDonationShell>
+  ) : renderPublicShell(
+    <DonationPage onBackToHome={handleBackFromDonation} hideHeader />
+  );
+
   return (
     <>
       <ScrollToTop />
@@ -410,6 +441,7 @@ export const AppRoutes: React.FC = () => {
           )
         } />
         <Route path="/verify-email" element={<VerifyEmailPage />} />
+        <Route path="/donate" element={DonationRoute} />
         <Route path="/search-hospitals" element={<Navigate to="/partner-hospitals" replace />} />
         <Route path="/search-doctors" element={<Navigate to="/book-appointment" replace />} />
         <Route path="/partner-with-us" element={
@@ -525,6 +557,7 @@ export const AppRoutes: React.FC = () => {
 
         <Route path="*" element={<NotFound />} />
       </Routes>
+      <DonatePromoter activeModal={activeModal} />
     </>
   );
 };
