@@ -32,6 +32,7 @@ import {
 import { ActiveModal } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { BrandLogo } from './BrandLogo';
+import { Link } from 'react-router-dom';
 
 interface LoginPageProps {
   onBackToHome: () => void;
@@ -73,6 +74,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
         cleanIdentifier.toLowerCase().includes('kims') ||
         cleanIdentifier.toLowerCase().includes('marketing') ||
         cleanIdentifier.toLowerCase().includes('mkt') ||
+        cleanIdentifier.toLowerCase().includes('lab') ||
         cleanIdentifier.toLowerCase().includes('admin');
 
       if (isNumeric && cleanIdentifier.length !== 10) {
@@ -139,6 +141,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   const handleAutoFillMarketing = () => {
     setIdentifier('marketing@ayudhvikasfoundation.org');
     setPassword('marketing123');
+    setErrors({});
+  };
+
+  const handleAutoFillLab = () => {
+    setIdentifier('lab@ayudhvikas.org');
+    setPassword('lab123');
     setErrors({});
   };
 
@@ -424,6 +432,20 @@ export const LoginPage: React.FC<LoginPageProps> = ({
 
                   <button
                     type="button"
+                    onClick={handleAutoFillLab}
+                    className="bg-white hover:bg-cyan-50 text-slate-700 hover:text-cyan-900 border border-slate-200 hover:border-cyan-300 rounded-lg p-2.5 min-h-[58px] text-left transition-all shadow-2xs cursor-pointer group"
+                  >
+                    <div className="text-[11px] font-black text-cyan-900 group-hover:text-cyan-950 flex items-center gap-1 min-w-0">
+                      <TestTube className="w-3 h-3 text-cyan-600" />
+                      <span>Lab Team</span>
+                    </div>
+                    <div className="text-[9px] text-slate-500 font-medium truncate">
+                      lab@ayudhvikas.org
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
                     onClick={handleAutoFillAdmin}
                     className="bg-white hover:bg-purple-50 text-slate-700 hover:text-purple-950 border border-slate-200 hover:border-purple-400 rounded-lg p-2.5 min-h-[58px] text-left transition-all shadow-2xs cursor-pointer group"
                   >
@@ -464,6 +486,21 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                     </div>
                   </button>
                 </div>
+              </div>
+
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 flex flex-col sm:flex-row sm:items-center gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-black text-emerald-900">Your kindness can become medicine, food, or one hospital visit.</div>
+                  <div className="text-[10.5px] font-bold text-emerald-700 mt-0.5">మీ చిన్న సహాయం ఒక కుటుంబానికి పెద్ద ఆశగా మారుతుంది.</div>
+                </div>
+                <Link
+                  to="/donate"
+                  state={{ from: '/login' }}
+                  className="h-9 px-4 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-black flex items-center justify-center gap-2"
+                >
+                  <HeartHandshake className="w-4 h-4" />
+                  Donate
+                </Link>
               </div>
 
               {/* General Error Message if any */}

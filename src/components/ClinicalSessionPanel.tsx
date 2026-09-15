@@ -13,6 +13,8 @@ import {
   Upload,
 } from 'lucide-react';
 import { api } from '../lib/api';
+import { useAuth } from '../context/AuthContext';
+import { useLiveData } from '../context/LiveDataContext';
 
 type Props = {
   roleLabel: 'Doctor' | 'Hospital';
@@ -29,7 +31,18 @@ function isComplete(session: any) {
   return session?.status === 'Completed' || session?.sessionStatus === 'COMPLETED';
 }
 
+function sameText(a: any, b: any) {
+  return String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
+}
+
+function prescriptionSummary(item: any) {
+  const medicine = item?.medicines?.find?.((med: any) => med?.medicine || med?.name);
+  return medicine?.medicine || medicine?.name || item?.instructions || 'Prescription';
+}
+
 export const ClinicalSessionPanel: React.FC<Props> = ({ roleLabel, title = 'Authorized Patients' }) => {
+  const { user } = useAuth();
+  const { collections } = useLiveData();
   const [patients, setPatients] = useState<any[]>([]);
   const [selectedPatientId, setSelectedPatientId] = useState('');
   const [selectedSessionId, setSelectedSessionId] = useState('');
@@ -53,6 +66,8 @@ export const ClinicalSessionPanel: React.FC<Props> = ({ roleLabel, title = 'Auth
     file: null as null | { name: string; type: string; size: number; data: string },
   });
   const [prescriptionForm, setPrescriptionForm] = useState({
+    doctorId: '',
+    doctorName: '',
     instructions: '',
     medicines: [{ ...emptyMedicine }],
   });
@@ -69,6 +84,24 @@ export const ClinicalSessionPanel: React.FC<Props> = ({ roleLabel, title = 'Auth
   const sessions = selectedPatient?.sessions || [];
   const currentSession = sessionBundle?.item || selectedPatient?.activeSession;
   const completed = isComplete(currentSession);
+  const hospitalDoctors = useMemo(() => {
+    if (roleLabel !== 'Hospital') return [];
+    const hospitalId = String(user?.hospitalId || user?.data?.hospitalId || currentSession?.hospitalId || '').trim();
+    const hospitalName = user?.hospitalName || user?.name || currentSession?.hospitalName;
+    const assignments = (collections.doctor_hospital_assignments || []).filter((assignment: any) =>
+      (!hospitalId || String(assignment.hospitalId || '') === hospitalId) &&
+      (!assignment.status || ['Active', 'Accepted', 'Approved'].includes(String(assignment.status)))
+    );
+    const assignedDoctorIds = new Set(assignments.map((assignment: any) => String(assignment.doctorId || '')));
+    const doctors = (collections.doctors || []).filter((doctor: any) =>
+      String(doctor.hospitalId || '') === hospitalId ||
+      sameText(doctor.hospitalName || doctor.hospital, hospitalName) ||
+      assignedDoctorIds.has(String(doctor.id || doctor.doctorId || ''))
+    );
+    const byId = new Map<string, any>();
+    doctors.forEach((doctor: any) => byId.set(String(doctor.id || doctor.doctorId || doctor.name), doctor));
+    return Array.from(byId.values());
+  }, [collections.doctor_hospital_assignments, collections.doctors, currentSession?.hospitalId, currentSession?.hospitalName, roleLabel, user]);
 
   const filteredPatients = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -150,6 +183,19 @@ export const ClinicalSessionPanel: React.FC<Props> = ({ roleLabel, title = 'Auth
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSessionId]);
 
+  useEffect(() => {
+    if (roleLabel !== 'Hospital') return;
+    const currentDoctorId = currentSession?.doctorId ? String(currentSession.doctorId) : '';
+    const currentDoctorName = currentSession?.doctorName || '';
+    if (currentDoctorId || currentDoctorName) {
+      setPrescriptionForm((prev) => ({
+        ...prev,
+        doctorId: currentDoctorId || prev.doctorId,
+        doctorName: currentDoctorName || prev.doctorName,
+      }));
+    }
+  }, [currentSession?.doctorId, currentSession?.doctorName, roleLabel]);
+
   const handlePatientSelect = (patient: any) => {
     setSelectedPatientId(patient.patientId);
     const nextSession = patient.activeSession || patient.sessions?.[0];
@@ -204,8 +250,18 @@ export const ClinicalSessionPanel: React.FC<Props> = ({ roleLabel, title = 'Auth
     setError('');
     try {
       const medicines = prescriptionForm.medicines.filter((med) => med.medicine.trim());
+      if (roleLabel === 'Hospital' && hospitalDoctors.length > 0 && !prescriptionForm.doctorName) {
+        setError('Select the treating doctor for this prescription.');
+        setSaving(null);
+        return;
+      }
       await api.createSessionPrescription(selectedSessionId, { ...prescriptionForm, medicines });
-      setPrescriptionForm({ instructions: '', medicines: [{ ...emptyMedicine }] });
+      setPrescriptionForm((prev) => ({
+        doctorId: roleLabel === 'Hospital' ? prev.doctorId : '',
+        doctorName: roleLabel === 'Hospital' ? prev.doctorName : '',
+        instructions: '',
+        medicines: [{ ...emptyMedicine }],
+      }));
       setNotice('Prescription saved and reminders generated where possible.');
       await loadSession();
     } catch (err: any) {
@@ -410,6 +466,40 @@ export const ClinicalSessionPanel: React.FC<Props> = ({ roleLabel, title = 'Auth
 
                 <form onSubmit={savePrescription} className="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
                   <div className="flex items-center gap-2 text-slate-900 font-black text-sm"><Pill className="w-4 h-4 text-emerald-700" /> Prescription</div>
+                  {roleLabel === 'Hospital' && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                      <label className="space-y-1">
+                        <span className="text-[10px] uppercase font-black text-slate-400">Treating Doctor</span>
+                        <select
+                          disabled={completed}
+                          value={prescriptionForm.doctorId || prescriptionForm.doctorName}
+                          onChange={(event) => {
+                            const selected = hospitalDoctors.find((doctor: any) =>
+                              String(doctor.id || doctor.doctorId || doctor.name) === event.target.value
+                            );
+                            setPrescriptionForm({
+                              ...prescriptionForm,
+                              doctorId: selected?.id || selected?.doctorId || '',
+                              doctorName: selected?.name || '',
+                            });
+                          }}
+                          className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 font-bold"
+                        >
+                          <option value="">Select hospital doctor</option>
+                          {hospitalDoctors.map((doctor: any) => (
+                            <option key={doctor.id || doctor.doctorId || doctor.name} value={doctor.id || doctor.doctorId || doctor.name}>
+                              {doctor.name} {doctor.speciality ? `- ${doctor.speciality}` : ''}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      {hospitalDoctors.length === 0 && (
+                        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] font-bold text-amber-800">
+                          No hospital doctors are linked yet. Add doctors in Doctor Management to select a treating doctor.
+                        </div>
+                      )}
+                    </div>
+                  )}
                   {prescriptionForm.medicines.map((med, index) => (
                     <div key={index} className="grid grid-cols-1 md:grid-cols-5 gap-2 text-xs">
                       {(['medicine', 'dosage', 'frequency', 'duration', 'instructions'] as const).map((field) => (
@@ -443,7 +533,12 @@ export const ClinicalSessionPanel: React.FC<Props> = ({ roleLabel, title = 'Auth
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
                   <MiniList title="Reports" items={sessionBundle?.reports || []} render={(item) => item.title || item.type} />
-                  <MiniList title="Prescriptions" items={sessionBundle?.prescriptions || []} render={(item) => item.doctorName || item.instructions || 'Prescription'} />
+                  <MiniList title="Prescriptions" items={sessionBundle?.prescriptions || []} render={(item) => (
+                    <span>
+                      {prescriptionSummary(item)}
+                      {item.doctorName && <span className="block text-[10px] text-slate-400 mt-0.5">Treated by {item.doctorName}</span>}
+                    </span>
+                  )} />
                   <MiniList title="Reminders" items={sessionBundle?.reminders || []} render={(item) => (
                     <span className="flex items-center gap-1">{item.mandatory && <Lock className="w-3 h-3" />}{item.title}</span>
                   )} />

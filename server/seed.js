@@ -233,6 +233,7 @@ export async function seedDatabase(db, hashPassword) {
   const doctorPassword = await hashPassword('doctor123');
   const hospitalPassword = await hashPassword('hospital123');
   const marketingPassword = await hashPassword('marketing123');
+  const labPassword = await hashPassword('lab123');
   const adminPassword = await hashPassword('admin123');
   const volunteerPassword = await hashPassword('volunteer123');
   const organizerPassword = await hashPassword('organizer123');
@@ -317,6 +318,24 @@ export async function seedDatabase(db, hashPassword) {
   });
 
   await db.createUser({
+    id: 'user-lab-1',
+    role: 'lab',
+    roles: ['lab'],
+    primaryRole: 'lab',
+    name: 'Ayudh Vikas Diagnostic Lab',
+    email: 'lab@ayudhvikas.org',
+    phone: '9876500002',
+    password_hash: labPassword,
+    emailVerified: true,
+    data: {
+      labId: 'LAB-DEMO-1',
+      labName: 'Ayudh Vikas Diagnostic Lab',
+      identifier: 'lab@ayudhvikas.org',
+      district: 'Warangal',
+    },
+  });
+
+  await db.createUser({
     id: 'user-admin-1',
     role: 'admin',
     roles: ['admin'],
@@ -373,6 +392,27 @@ export async function seedDatabase(db, hashPassword) {
   for (const camp of HEALTH_CAMPS) {
     await db.create('health_camps', camp);
   }
+
+  await db.create('partnerships', {
+    id: 'LAB-DEMO-1',
+    userId: 'user-lab-1',
+    role: 'lab',
+    labId: 'LAB-DEMO-1',
+    name: 'Ayudh Vikas Diagnostic Lab',
+    labName: 'Ayudh Vikas Diagnostic Lab',
+    licenseNumber: 'AVF-LAB-2026-001',
+    nablApproved: 'Yes',
+    contactPerson: 'Lab Operations Team',
+    phone: '9876500002',
+    email: 'lab@ayudhvikas.org',
+    district: 'Warangal',
+    address: 'Ayudh Vikas Health Care Network, Warangal',
+    testCategories: ['Hematology', 'Biochemistry', 'Microbiology', 'Radiology / X-Ray'],
+    homeCollectionAvailable: true,
+    digitalReportsTurnaround: 'Within 6 Hours',
+    status: 'Active',
+    verificationStatus: 'VERIFIED',
+  });
 
   await db.create('patients', {
     id: 'AVP100245',
