@@ -227,11 +227,11 @@ export const RoleDonationShell: React.FC<RoleDonationShellProps> = ({
         <aside className={`
           fixed lg:sticky top-[61px] bottom-0 left-0 z-30
           w-64 bg-[#091b38] text-slate-300 flex flex-col justify-between shrink-0
-          transition-transform duration-200 ease-in-out overflow-y-auto
+          transition-transform duration-200 ease-in-out overflow-hidden
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-          shadow-xl lg:shadow-none min-h-[calc(100vh-61px)]
+          shadow-xl lg:shadow-none h-[calc(100vh-61px)] max-h-[calc(100vh-61px)]
         `}>
-          <nav className="p-3 space-y-1">
+          <nav className="p-3 space-y-1 flex-1 overflow-y-auto min-h-0">
             {navItems.map((item) => {
               const Icon = item.icon;
               const active = item.path === '/donate';
@@ -254,7 +254,7 @@ export const RoleDonationShell: React.FC<RoleDonationShellProps> = ({
             })}
           </nav>
 
-          <div className="p-3 border-t border-slate-800/80">
+          <div className="p-3 border-t border-slate-800/80 shrink-0 bg-[#091b38]">
             <button
               onClick={onLogout}
               className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-bold text-slate-400 hover:text-red-400 hover:bg-red-950/30 transition-all text-left"

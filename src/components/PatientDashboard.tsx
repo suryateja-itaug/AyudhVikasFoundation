@@ -605,13 +605,13 @@ export const PatientDashboard: React.FC<PatientDashboardProps> = ({
 
         {/* LEFT SIDEBAR NAVIGATION (PERSISTENT ON ALL PAGES) */}
         <aside className={`
-          fixed lg:static top-[60px] bottom-0 left-0 z-30
+          fixed lg:sticky top-[60px] bottom-0 left-0 z-30
           w-64 bg-[#091b38] text-slate-300 flex flex-col justify-between shrink-0
-          transition-transform duration-200 ease-in-out overflow-y-auto
+          transition-transform duration-200 ease-in-out overflow-hidden
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-          shadow-xl lg:shadow-none min-h-[calc(100vh-60px)]
+          shadow-xl lg:shadow-none h-[calc(100vh-60px)] max-h-[calc(100vh-60px)]
         `}>
-          <div className="p-3 space-y-1">
+          <div className="p-3 space-y-1 flex-1 overflow-y-auto min-h-0">
             {sidebarMenuItems.map((item) => {
               const IconComp = item.icon;
               const isActive = activeSidebarTab === item.id;
@@ -641,7 +641,7 @@ export const PatientDashboard: React.FC<PatientDashboardProps> = ({
           </div>
 
           {/* Bottom Logout Button */}
-          <div className="p-3 border-t border-slate-800/80">
+          <div className="p-3 border-t border-slate-800/80 shrink-0 bg-[#091b38]">
             <button
               onClick={onLogout}
               className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-bold text-slate-400 hover:text-red-400 hover:bg-red-950/30 transition-all text-left cursor-pointer"
@@ -752,7 +752,6 @@ export const PatientDashboard: React.FC<PatientDashboardProps> = ({
           {activeSidebarTab === 'donation' && (
             <div className="p-0 animate-fadeIn">
               <DonationPage
-                hideHeader={true}
                 onBackToHome={() => {
                   if ((window.history.state?.idx || 0) > 0) window.history.back();
                   else handleSidebarClick('dashboard');

@@ -272,12 +272,12 @@ export const MarketingDashboard: React.FC<MarketingDashboardProps> = ({
         {/* SIDEBAR (NAVY DARK THEME) */}
         {/* ======================================================================= */}
         <aside
-          className={`fixed lg:sticky top-[57px] left-0 h-[calc(100vh-57px)] w-64 bg-[#152e4d] text-white flex flex-col justify-between p-3.5 z-30 transition-transform duration-200 overflow-y-auto ${
+          className={`fixed lg:sticky top-[57px] left-0 h-[calc(100vh-57px)] max-h-[calc(100vh-57px)] w-64 bg-[#152e4d] text-white flex flex-col justify-between p-3.5 z-30 transition-transform duration-200 overflow-hidden ${
             sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
           }`}
         >
           {/* Top Navigation Items */}
-          <div className="space-y-1">
+          <div className="space-y-1 flex-1 overflow-y-auto min-h-0 pr-1">
             
             {/* Dashboard (Active - Solid Green button) */}
             <button
@@ -543,7 +543,7 @@ export const MarketingDashboard: React.FC<MarketingDashboardProps> = ({
           </div>
 
           {/* Bottom Card: Need Help? + Copyright */}
-          <div className="pt-4 space-y-3">
+          <div className="pt-4 space-y-3 shrink-0">
             <div className="bg-gradient-to-b from-blue-600 to-blue-800 rounded-2xl p-4 text-center text-white shadow-lg space-y-2.5 border border-blue-400/30">
               <div className="w-10 h-10 rounded-full bg-white/20 border border-white/40 flex items-center justify-center mx-auto text-white">
                 <Headphones className="w-5 h-5" />

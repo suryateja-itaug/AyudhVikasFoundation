@@ -84,7 +84,18 @@ function PatientArea(props: {
         activeTab={tab}
         onTabChange={(next) => {
           props.setPatientActiveTab(next);
-          navigate(PATIENT_TAB_PATHS[next] || '/patient/dashboard');
+          const nextPath = PATIENT_TAB_PATHS[next] || '/patient/dashboard';
+          if (nextPath === '/donate') {
+            const from = `${location.pathname}${location.search}${location.hash}`;
+            try {
+              sessionStorage.setItem('ayudh_donate_from', from);
+            } catch {
+              /* ignore storage restrictions */
+            }
+            navigate(nextPath, { state: { from } });
+            return;
+          }
+          navigate(nextPath);
         }}
         pendingHospitalId={props.pendingAfterRegister?.type === 'hospital_visit' ? props.pendingAfterRegister.hospitalId : undefined}
         pendingDoctorId={props.pendingAfterRegister?.type === 'hospital_visit' ? props.pendingAfterRegister.doctorId : undefined}
@@ -221,7 +232,14 @@ export const AppRoutes: React.FC = () => {
   };
   const handleBackFromDonation = () => {
     const state = location.state as { from?: string } | null;
-    const from = state?.from;
+    let storedFrom = '';
+    try {
+      storedFrom = sessionStorage.getItem('ayudh_donate_from') || '';
+      sessionStorage.removeItem('ayudh_donate_from');
+    } catch {
+      /* ignore storage restrictions */
+    }
+    const from = state?.from || storedFrom;
     if (from && from !== location.pathname) {
       navigate(from, { replace: true });
       return;
@@ -410,10 +428,10 @@ export const AppRoutes: React.FC = () => {
       onLogout={handleLogout}
       onNavigateHome={handleBackToHome}
     >
-      <DonationPage onBackToHome={handleBackFromDonation} hideHeader />
+      <DonationPage onBackToHome={handleBackFromDonation} />
     </RoleDonationShell>
   ) : renderPublicShell(
-    <DonationPage onBackToHome={handleBackFromDonation} hideHeader />
+    <DonationPage onBackToHome={handleBackFromDonation} />
   );
 
   return (

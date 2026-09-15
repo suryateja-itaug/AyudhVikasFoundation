@@ -726,9 +726,9 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
       <div className="max-w-[1700px] mx-auto w-full flex-1 flex p-3 sm:p-4 gap-4 items-start">
         
         {/* LEFT SIDEBAR NAVIGATION: 13 ITEMS */}
-        <aside className={`${sidebarOpen ? 'w-56' : 'w-16'} shrink-0 transition-all duration-200 space-y-3 sticky top-16`}>
+        <aside className={`${sidebarOpen ? 'w-56' : 'w-16'} shrink-0 transition-all duration-200 space-y-3 sticky top-16 h-[calc(100vh-4rem)] max-h-[calc(100vh-4rem)] overflow-hidden flex flex-col`}>
           
-          <div className="bg-white rounded-xl border border-slate-200 p-2 shadow-2xs space-y-1">
+          <div className="bg-white rounded-xl border border-slate-200 p-2 shadow-2xs space-y-1 flex-1 overflow-y-auto min-h-0">
             
             {/* 1. Dashboard (Active Navy Pill) */}
             <button
@@ -1006,7 +1006,7 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
 
           {/* Need Help? Sidebar Card */}
           {sidebarOpen && (
-            <div className="bg-[#12263f] text-white rounded-xl p-3.5 shadow-sm space-y-2.5 text-center">
+            <div className="bg-[#12263f] text-white rounded-xl p-3.5 shadow-sm space-y-2.5 text-center shrink-0">
               <div className="w-7 h-7 rounded-full bg-blue-500/20 text-blue-300 flex items-center justify-center mx-auto">
                 <Headphones className="w-3.5 h-3.5" />
               </div>

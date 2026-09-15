@@ -29,14 +29,12 @@ import {
   Users,
   Utensils,
 } from 'lucide-react';
-import { BrandLogo } from './BrandLogo';
 import { api } from '../lib/api';
 import familyHeroImage from '../assets/images/indian_family_hero_1785560495834.jpg';
 import supportHeroImage from '../assets/images/support_agent_female_1785560510481.jpg';
 
 interface DonationPageProps {
   onBackToHome: () => void;
-  hideHeader?: boolean;
 }
 
 type Flow = 'types' | 'money' | 'support' | 'organ' | 'blood' | 'inkind';
@@ -61,7 +59,7 @@ const paymentMethods = ['Credit/Debit Card', 'Net Banking', 'UPI', 'Direct QR Co
 const districts = ['Warangal', 'Hanamkonda', 'Mulugu', 'Jangaon', 'Mahabubabad', 'Bhupalpally'];
 const mandals = ['Hanamkonda', 'Kazipet', 'Warangal', 'Parkal', 'Narsampet', 'Mulugu'];
 
-export const DonationPage: React.FC<DonationPageProps> = ({ onBackToHome, hideHeader = true }) => {
+export const DonationPage: React.FC<DonationPageProps> = ({ onBackToHome }) => {
   const [mode, setMode] = useState<'donate' | 'support'>('donate');
   const [activeFlow, setActiveFlow] = useState<Flow>('types');
   const [selected, setSelected] = useState(donationTypes[0]);
@@ -151,26 +149,12 @@ export const DonationPage: React.FC<DonationPageProps> = ({ onBackToHome, hideHe
   };
 
   return (
-    <div className={`${hideHeader ? 'min-h-full' : 'min-h-screen'} bg-[#f4faf8] text-slate-900 font-sans`}>
-      {!hideHeader && (
-      <header className="bg-white/95 border-b border-emerald-100 sticky top-0 z-30">
-        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
-          <button onClick={onBackToHome} className="flex items-center gap-2 text-xs font-black text-slate-600 hover:text-emerald-700">
-            <ArrowLeft className="w-4 h-4" />
-            Back
-          </button>
-          <div className="flex items-center gap-3">
-            <BrandLogo className="w-10 h-10" />
-            <div>
-              <div className="text-sm font-black text-[#0f2e5a] uppercase">Ayudh Vikas Foundation</div>
-              <div className="text-[10px] font-bold text-emerald-700 uppercase tracking-wide">Care Beyond Boundaries</div>
-            </div>
-          </div>
-        </div>
-      </header>
-      )}
-
+    <div className="min-h-full bg-[#f4faf8] text-slate-900 font-sans">
       <main className="max-w-6xl mx-auto px-4 py-8">
+        <button onClick={onBackToHome} className="mb-5 flex items-center gap-2 text-xs font-black text-slate-600 hover:text-emerald-700">
+          <ArrowLeft className="w-4 h-4" />
+          Back
+        </button>
         <section className="text-center max-w-4xl mx-auto">
           <p className="text-xs font-black uppercase tracking-[0.22em] text-emerald-700">Donate & Support Network</p>
           <h1 className="mt-2 text-3xl md:text-5xl font-black text-slate-950 leading-tight">మీ సహాయం - ఒకరి జీవితంలో మార్పు</h1>
