@@ -65,6 +65,7 @@ import { EmptyState } from './EmptyState';
 import { LiveStatusBadge } from './LiveStatusBadge';
 import { BrandLogo } from './BrandLogo';
 import { PatientMyAppointmentsPage } from './PatientMyAppointmentsPage';
+import { Fund360Button } from './Fund360Button';
 
 interface PatientDashboardProps {
   onLogout: () => void;
@@ -404,7 +405,7 @@ export const PatientDashboard: React.FC<PatientDashboardProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-[#f3f5f8] flex flex-col font-sans text-slate-800 selection:bg-emerald-500 selection:text-white">
+    <div className="h-screen overflow-hidden bg-[#f3f5f8] flex flex-col font-sans text-slate-800 selection:bg-emerald-500 selection:text-white">
       
       {/* Toast Notification */}
       {toastMessage && (
@@ -584,6 +585,7 @@ export const PatientDashboard: React.FC<PatientDashboardProps> = ({
                 <span className="text-[10px] font-bold text-emerald-700 leading-tight">
                   Patient ID : {profileData.patientId}
                 </span>
+                <Fund360Button compact className="mt-1 h-7 px-2.5 text-[10px]" />
               </div>
             </div>
 
@@ -593,7 +595,7 @@ export const PatientDashboard: React.FC<PatientDashboardProps> = ({
       </header>
 
       {/* 2. MAIN BODY LAYOUT: PERSISTENT SIDEBAR + DYNAMIC VIEW CONTENT */}
-      <div className="flex flex-1 relative max-w-[1700px] w-full mx-auto">
+      <div className="flex flex-1 relative max-w-[1700px] w-full mx-auto overflow-hidden">
         
         {/* Backdrop for mobile drawer */}
         {sidebarOpen && (
@@ -653,7 +655,7 @@ export const PatientDashboard: React.FC<PatientDashboardProps> = ({
         </aside>
 
         {/* RIGHT MAIN CONTENT AREA - SWITCHES SMOOTHLY PER TAB WHILE PRESERVING SIDEBAR */}
-        <main className="flex-1 overflow-y-auto min-w-0 bg-[#f3f5f8]">
+        <main className="flex-1 overflow-y-auto min-w-0 bg-[#f3f5f8] h-full">
           
           {/* TAB 0: FIND NEARBY HOSPITALS & VISIT REQUESTS VIEW */}
           {loading && activeSidebarTab === 'dashboard' && (

@@ -182,6 +182,38 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({}),
     }),
+  fund360Account: () =>
+    request<{
+      account: any;
+      profile: any;
+      participation: any;
+      participations: any[];
+      transactions: any[];
+      monthlyPayments: any[];
+      milestones: any[];
+      benefits: any[];
+      serviceParticipations: any[];
+      celebrationPreferences: any[];
+      eligibilityRecords: any[];
+      summary: any;
+    }>('/api/fund360/account'),
+  startFund360Participation: (payload: any) =>
+    request<{ account: any; participation: any; transaction?: any; service?: any }>('/api/fund360/participation', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  verifyFund360Transaction: (id: string, payload: any) =>
+    request<{ account: any; participation: any; transaction: any }>(`/api/fund360/transactions/${encodeURIComponent(id)}/verify`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  adminFund360: () =>
+    request<{ items: any[] }>('/api/admin/fund360'),
+  updateAdminFund360: (collection: string, id: string, payload: any) =>
+    request<{ item: any }>(`/api/admin/fund360/${encodeURIComponent(collection)}/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    }),
   searchHospitals: (filter: Record<string, string | number | undefined> = {}) => {
     const params = new URLSearchParams();
     Object.entries(filter).forEach(([k, v]) => {

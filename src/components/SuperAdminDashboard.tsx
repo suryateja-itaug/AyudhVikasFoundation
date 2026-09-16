@@ -9,6 +9,8 @@ import { useNavigate } from 'react-router-dom';
 import { ADMIN_NAV_PATHS } from '../lib/roleRoutes';
 import { LiveStatusBadge } from './LiveStatusBadge';
 import { BrandLogo } from './BrandLogo';
+import { Fund360Button } from './Fund360Button';
+import { AdminFund360Panel } from './AdminFund360Panel';
 import {
   LayoutDashboard,
   Users,
@@ -222,7 +224,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   const isRoleManagementNav = ['Users Management', 'Doctors Management', 'Hospitals Management', 'Marketing Team', 'Feature Management'].includes(activeNav);
 
   return (
-    <div className="min-h-screen bg-[#f0f4f9] font-sans text-slate-800 flex flex-col selection:bg-blue-600 selection:text-white">
+    <div className="h-screen overflow-hidden bg-[#f0f4f9] font-sans text-slate-800 flex flex-col selection:bg-blue-600 selection:text-white">
       
       {/* ========================================================================= */}
       {/* TOP APPLICATION BAR (Exact Header from Image) */}
@@ -329,6 +331,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                 <div className="hidden lg:block text-left leading-tight">
                   <div className="text-xs font-black text-slate-800">Admin User</div>
                   <div className="text-[10px] text-slate-500 font-semibold">Super Administrator</div>
+                  <Fund360Button compact className="mt-1 h-7 px-2.5 text-[10px]" />
                 </div>
                 <ChevronDown className={`w-3.5 h-3.5 text-slate-400 ml-0.5 transition-transform ${showProfileMenu ? 'rotate-180' : ''}`} />
               </div>
@@ -501,6 +504,16 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                   >
                     <Settings className="w-3.5 h-3.5 text-amber-400" />
                     <span>Feature Management</span>
+                  </button>
+
+                  <button
+                    onClick={() => goNav('Fund 365 Management')}
+                    className={`w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg font-semibold transition-colors cursor-pointer ${
+                      activeNav === 'Fund 365 Management' ? 'bg-[#1a3863] text-white' : 'text-slate-300 hover:bg-[#16335a] hover:text-white'
+                    }`}
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-emerald-300" />
+                    <span>Fund 365 Management</span>
                   </button>
 
                   <button
@@ -782,6 +795,8 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
             <DoctorVerificationPanel />
           ) : activeNav === 'Hospital Verifications' ? (
             <HospitalVerificationPanel />
+          ) : activeNav === 'Fund 365 Management' ? (
+            <AdminFund360Panel />
           ) : isRoleManagementNav ? (
             <AdminRoleManagement
               activeNav={activeNav}

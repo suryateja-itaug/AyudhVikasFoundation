@@ -42,6 +42,7 @@ import { EmptyState } from './EmptyState';
 import { LiveStatusBadge } from './LiveStatusBadge';
 import { BrandLogo } from './BrandLogo';
 import { NotificationBell } from './NotificationBell';
+import { Fund360Button } from './Fund360Button';
 
 type HospitalNav =
   | 'Dashboard'
@@ -928,7 +929,7 @@ export const HospitalDashboard: React.FC<HospitalDashboardProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-[#f4f7fb] text-slate-800 font-sans flex flex-col selection:bg-emerald-500 selection:text-white">
+    <div className="h-screen overflow-hidden bg-[#f4f7fb] text-slate-800 font-sans flex flex-col selection:bg-emerald-500 selection:text-white">
       {toast && (
         <div className="fixed bottom-5 right-5 z-50 bg-[#132d4b] text-white rounded-lg shadow-xl px-4 py-3 text-xs font-black flex items-center gap-2">
           <CheckCircle2 className="w-4 h-4 text-emerald-300" />
@@ -974,7 +975,7 @@ export const HospitalDashboard: React.FC<HospitalDashboardProps> = ({
             <button onClick={() => navigate('Notifications')} className="relative w-8 h-8 rounded-full border border-slate-200 hover:border-slate-300 flex items-center justify-center text-slate-600 bg-white cursor-pointer">
               <Bell className="w-4 h-4" />
             </button>
-            <div className="relative">
+            <div className="relative flex flex-col items-end gap-1">
               <button onClick={() => setUserDropdownOpen(!userDropdownOpen)} className="flex items-center gap-2 pl-1 pr-2 py-1 rounded-lg hover:bg-slate-100 cursor-pointer transition-colors">
                 <div className="relative">
                   <div className={`${currentHospital.logoBg || 'bg-emerald-700'} w-8 h-8 rounded-full text-white flex items-center justify-center text-[10px] font-black border border-slate-200`}>
@@ -988,6 +989,7 @@ export const HospitalDashboard: React.FC<HospitalDashboardProps> = ({
                 </div>
                 <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
               </button>
+              <Fund360Button compact className="h-7 px-2.5 text-[10px]" />
 
               {userDropdownOpen && (
                 <div className="absolute right-0 mt-2 w-60 bg-white rounded-lg shadow-xl border border-slate-200 py-1.5 z-50 text-xs">
@@ -1021,7 +1023,7 @@ export const HospitalDashboard: React.FC<HospitalDashboardProps> = ({
         </div>
       </header>
 
-      <div className="w-full flex-1 flex p-3 sm:p-4 gap-4 items-start">
+      <div className="w-full flex-1 flex p-3 sm:p-4 gap-4 items-start overflow-hidden">
         <aside className={`${sidebarOpen ? 'w-56' : 'w-16'} shrink-0 transition-all duration-200 space-y-3 sticky top-16 hidden md:flex h-[calc(100vh-4rem)] max-h-[calc(100vh-4rem)] overflow-hidden flex-col`}>
           <div className="bg-white rounded-lg border border-slate-200 p-2 shadow-sm space-y-1 flex-1 overflow-y-auto min-h-0">
             {navItems.map((item) => {
@@ -1063,9 +1065,20 @@ export const HospitalDashboard: React.FC<HospitalDashboardProps> = ({
               <button onClick={() => navigate('Support')} className="w-full bg-white text-slate-950 rounded-lg py-2 text-xs font-black cursor-pointer">Contact Support</button>
             </div>
           )}
+
+          <div className="bg-white rounded-lg border border-slate-200 p-2 shadow-sm shrink-0">
+            <button
+              onClick={onLogout}
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-xs font-black text-rose-700 hover:bg-rose-50 transition-colors cursor-pointer"
+              title="Logout"
+            >
+              <LogOut className="w-4 h-4 shrink-0 text-rose-600" />
+              {sidebarOpen && <span>Logout</span>}
+            </button>
+          </div>
         </aside>
 
-        <main className="flex-1 min-w-0 space-y-4">
+        <main className="flex-1 min-w-0 space-y-4 overflow-y-auto h-full pr-1">
           <div className="md:hidden bg-white border border-slate-200 rounded-lg p-2 flex gap-2 overflow-x-auto">
             {navItems.slice(0, 8).map((item) => (
               <button key={item.label} onClick={() => navigate(item.label)} className={`shrink-0 rounded-lg px-3 py-2 text-xs font-black ${activeNav === item.label ? 'bg-[#152e4d] text-white' : 'bg-slate-50 text-slate-700'}`}>

@@ -3,6 +3,7 @@ import { LogOut, Tent, Users, MapPin, CheckCircle2, Handshake } from 'lucide-rea
 import { BrandLogo } from './BrandLogo';
 import { useAuth } from '../context/AuthContext';
 import { UPCOMING_CAMPS } from '../data/mockData';
+import { Fund360Button } from './Fund360Button';
 
 interface CommunityRoleDashboardProps {
   onLogout: () => void;
@@ -28,13 +29,16 @@ export const CommunityRoleDashboard: React.FC<CommunityRoleDashboardProps> = ({
               <div className="text-[10px] font-bold text-emerald-700 uppercase">{title}</div>
             </div>
           </button>
-          <button
-            onClick={onLogout}
-            className="flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-red-700 border border-slate-200 px-3 py-1.5 rounded-lg"
-          >
-            <LogOut className="w-3.5 h-3.5" />
-            Logout
-          </button>
+          <div className="flex items-center gap-2">
+            <Fund360Button compact />
+            <button
+              onClick={onLogout}
+              className="flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-red-700 border border-slate-200 px-3 py-1.5 rounded-lg"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              Logout
+            </button>
+          </div>
         </div>
       </header>
 

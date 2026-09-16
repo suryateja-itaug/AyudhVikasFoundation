@@ -9,12 +9,14 @@ import {
   IndianRupee,
   Heart,
   ShieldCheck,
+  Sparkles,
 } from 'lucide-react';
 import { ActiveModal } from '../types';
 
 interface HeroSectionProps {
   onOpenModal: (modal: ActiveModal) => void;
   onBecomeMemberClick?: () => void;
+  onFund360Click?: () => void;
 }
 
 const reasons = [
@@ -26,7 +28,7 @@ const reasons = [
   'Care with Compassion & Integrity',
 ];
 
-export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenModal, onBecomeMemberClick }) => {
+export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenModal, onBecomeMemberClick, onFund360Click }) => {
   return (
     <section className="relative overflow-hidden border-b border-slate-200 bg-white">
       <div className="absolute inset-y-0 right-0 hidden lg:block w-[58%]">
@@ -118,6 +120,14 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenModal, onBecomeM
                 </div>
               </button>
             </div>
+
+            <button
+              onClick={onFund360Click}
+              className="inline-flex items-center gap-2 rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-2.5 text-xs sm:text-sm font-black text-emerald-900 shadow-xs hover:bg-emerald-100 transition-colors"
+            >
+              <Sparkles className="w-4 h-4 text-emerald-700" />
+              Join FUND 365 - Rs. 365 annual participation
+            </button>
 
             <div className="flex flex-wrap items-center gap-4 sm:gap-6 pt-3 text-xs sm:text-sm font-black text-slate-800 border-t border-slate-200/80 max-w-4xl">
               <div className="flex items-center gap-1.5 text-emerald-800">

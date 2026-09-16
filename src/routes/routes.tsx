@@ -19,6 +19,7 @@ import { LabDashboard } from '../components/LabDashboard';
 import { DonationPage } from '../components/DonationPage';
 import { DonatePromoter } from '../components/DonatePromoter';
 import { RoleDonationShell } from '../components/RoleDonationShell';
+import { Fund360Portal } from '../components/Fund360Portal';
 import { PartnerWithUsPage } from '../components/PartnerWithUsPage';
 import { BookAppointmentPage } from '../components/BookAppointmentPage';
 import { AmbulanceBookingPage } from '../components/AmbulanceBookingPage';
@@ -64,7 +65,7 @@ function DashboardRedirect() {
 function PatientArea(props: {
   patientActiveTab: string;
   setPatientActiveTab: (tab: string) => void;
-  pendingAfterRegister: { type: 'hospital_visit' | 'tab'; hospitalId?: string; doctorId?: string; tab?: string } | null;
+  pendingAfterRegister: { type: 'hospital_visit' | 'tab' | 'fund360'; hospitalId?: string; doctorId?: string; tab?: string } | null;
   onPendingVisitConsumed: () => void;
   onRequireRegister: (hospitalId: string, doctorId?: string) => void;
   onLogout: () => void;
@@ -116,7 +117,7 @@ export const AppRoutes: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('home');
   const [patientActiveTab, setPatientActiveTab] = useState<string>(() => getSavedState('ayudh_patientActiveTab', 'dashboard'));
   const [pendingAfterRegister, setPendingAfterRegister] = useState<{
-    type: 'hospital_visit' | 'tab';
+    type: 'hospital_visit' | 'tab' | 'fund360';
     hospitalId?: string;
     doctorId?: string;
     tab?: string;
@@ -230,6 +231,14 @@ export const AppRoutes: React.FC = () => {
     setActiveTab('hospitals');
     navigate('/partner-hospitals');
   };
+  const handleFund360Entry = () => {
+    if (isLoggedIn && !user?.isGuest) {
+      navigate('/fund360');
+      return;
+    }
+    setPendingAfterRegister({ type: 'fund360' });
+    setActiveModal('register_patient');
+  };
   const handleBackFromDonation = () => {
     const state = location.state as { from?: string } | null;
     let storedFrom = '';
@@ -287,6 +296,8 @@ export const AppRoutes: React.FC = () => {
     if (pendingAfterRegister?.type === 'hospital_visit') {
       setPatientActiveTab('find_hospitals');
       navigate('/patient/requests');
+    } else if (pendingAfterRegister?.type === 'fund360') {
+      navigate('/fund360/onboarding');
     } else if (pendingAfterRegister?.type === 'tab' && pendingAfterRegister.tab) {
       setPatientActiveTab(pendingAfterRegister.tab);
       navigate(PATIENT_TAB_PATHS[pendingAfterRegister.tab] || '/patient/dashboard');
@@ -298,6 +309,7 @@ export const AppRoutes: React.FC = () => {
 
   const handleCompleteRegistration = (_newPatient: any) => {
     applyPendingAfterRegister();
+    setPendingAfterRegister(null);
     setActiveModal(null);
   };
 
@@ -314,6 +326,7 @@ export const AppRoutes: React.FC = () => {
 
   const handleNavigateToDashboardFromModal = () => {
     applyPendingAfterRegister();
+    setPendingAfterRegister(null);
     setActiveModal(null);
   };
 
@@ -350,6 +363,7 @@ export const AppRoutes: React.FC = () => {
         onPartnerClick={handleShowPartner}
         onAmbulanceClick={handleShowAmbulance}
         onLabsClick={handleShowLabTests}
+        onFund360Click={handleFund360Entry}
       />
       <main className="flex-1 route-page">{body}</main>
       <Footer onOpenModal={handleOpenModal} setActiveTab={handleSetActiveTab} onSignInClick={handleShowLogin} />
@@ -375,9 +389,10 @@ export const AppRoutes: React.FC = () => {
         onPartnerClick={handleShowPartner}
         onAmbulanceClick={handleShowAmbulance}
         onLabsClick={handleShowLabTests}
+        onFund360Click={handleFund360Entry}
       />
       <main className="flex-1 route-page">
-        <HeroSection onOpenModal={handleOpenModal} onBecomeMemberClick={handleShowPartner} />
+        <HeroSection onOpenModal={handleOpenModal} onBecomeMemberClick={handleShowPartner} onFund360Click={handleFund360Entry} />
         <SearchSection onSearchSubmit={setSearchFilters} onOpenModal={handleOpenModal} />
         <ServicesGrid onOpenModal={handleOpenModal} />
         <StatsBanner />
@@ -507,6 +522,18 @@ export const AppRoutes: React.FC = () => {
           'hospitals'
         )} />
         <Route path="/dashboard" element={<DashboardRedirect />} />
+
+        <Route element={<PrivateRoute />}>
+          <Route path="/fund360" element={<Fund360Portal />} />
+          <Route path="/fund360/onboarding" element={<Fund360Portal />} />
+          <Route path="/fund360/dashboard" element={<Fund360Portal />} />
+          <Route path="/fund360/profile" element={<Fund360Portal />} />
+          <Route path="/fund360/finance" element={<Fund360Portal />} />
+          <Route path="/fund360/payments" element={<Fund360Portal />} />
+          <Route path="/fund360/milestones" element={<Fund360Portal />} />
+          <Route path="/fund360/benefits" element={<Fund360Portal />} />
+          <Route path="/fund360/history" element={<Fund360Portal />} />
+        </Route>
 
         <Route element={<PrivateRoute requiredRole="patient" />}>
           <Route path="/patient/dashboard" element={<PatientArea {...patientAreaProps} />} />

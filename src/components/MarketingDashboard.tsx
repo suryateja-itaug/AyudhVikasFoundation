@@ -47,6 +47,7 @@ import {
 import { MarketingLeadsPage } from './MarketingLeadsPage';
 import { useLiveData } from '../context/LiveDataContext';
 import { BrandLogo } from './BrandLogo';
+import { Fund360Button } from './Fund360Button';
 
 interface MarketingDashboardProps {
   onLogout: () => void;
@@ -140,7 +141,7 @@ export const MarketingDashboard: React.FC<MarketingDashboardProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-[#f3f5f8] text-slate-800 font-sans flex flex-col selection:bg-emerald-500 selection:text-white">
+    <div className="h-screen overflow-hidden bg-[#f3f5f8] text-slate-800 font-sans flex flex-col selection:bg-emerald-500 selection:text-white">
       
       {/* ========================================================================= */}
       {/* TOP HEADER BAR (EXACT AS IMAGE 2) */}
@@ -246,6 +247,7 @@ export const MarketingDashboard: React.FC<MarketingDashboardProps> = ({
               <div className="hidden sm:flex flex-col text-left leading-tight">
                 <span className="text-xs font-black text-slate-900">Rohit Kumar</span>
                 <span className="text-[10px] font-semibold text-slate-500">Marketing Manager</span>
+                <Fund360Button compact className="mt-1 h-7 px-2.5 text-[10px]" />
               </div>
 
               {/* Logout Button */}
@@ -266,7 +268,7 @@ export const MarketingDashboard: React.FC<MarketingDashboardProps> = ({
       {/* ========================================================================= */}
       {/* MAIN CONTAINER: SIDEBAR + CONTENT AREA */}
       {/* ========================================================================= */}
-      <div className="flex-1 flex max-w-[1600px] w-full mx-auto">
+      <div className="flex-1 flex max-w-[1600px] w-full mx-auto overflow-hidden">
         
         {/* ======================================================================= */}
         {/* SIDEBAR (NAVY DARK THEME) */}
@@ -578,7 +580,7 @@ export const MarketingDashboard: React.FC<MarketingDashboardProps> = ({
         {/* ======================================================================= */}
         {/* MAIN DASHBOARD CONTENT AREA */}
         {/* ======================================================================= */}
-        <main className="flex-1 p-4 lg:p-6 space-y-5 overflow-x-hidden">
+        <main className="flex-1 p-4 lg:p-6 space-y-5 overflow-y-auto overflow-x-hidden">
           
           {/* Top Row in Content: Quick notification toast & Date Picker */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
