@@ -29,6 +29,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../lib/api';
 import { BrandLogo } from './BrandLogo';
+import { Fund360Button } from './Fund360Button';
 
 type LabNav = 'Dashboard' | 'Requests' | 'Verification' | 'Reports' | 'History' | 'Profile' | 'Support';
 
@@ -164,7 +165,7 @@ export const LabDashboard: React.FC<LabDashboardProps> = ({ onLogout, onNavigate
   };
 
   return (
-    <div className="min-h-screen bg-[#f4f7fb] font-sans text-slate-800">
+    <div className="h-screen overflow-hidden bg-[#f4f7fb] font-sans text-slate-800 flex flex-col">
       <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 lg:px-6 sticky top-0 z-30">
         <div className="flex items-center gap-4">
           <BrandLogo />
@@ -177,6 +178,7 @@ export const LabDashboard: React.FC<LabDashboardProps> = ({ onLogout, onNavigate
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <Fund360Button compact />
           <button onClick={load} disabled={loading} className="h-9 px-3 rounded-full border border-blue-200 bg-blue-50 text-blue-700 text-xs font-black flex items-center gap-2">
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Refresh
           </button>
@@ -189,9 +191,9 @@ export const LabDashboard: React.FC<LabDashboardProps> = ({ onLogout, onNavigate
         </div>
       </header>
 
-      <div className="flex">
-        <aside className={`${sidebarOpen ? 'w-64' : 'w-20'} bg-[#0d2547] h-[calc(100vh-64px)] max-h-[calc(100vh-64px)] p-4 transition-all sticky top-16 overflow-hidden`}>
-          <nav className="space-y-2 h-full overflow-y-auto">
+      <div className="flex flex-1 overflow-hidden">
+        <aside className={`${sidebarOpen ? 'w-64' : 'w-20'} bg-[#0d2547] h-[calc(100vh-64px)] max-h-[calc(100vh-64px)] p-4 transition-all sticky top-16 overflow-hidden flex flex-col`}>
+          <nav className="space-y-2 flex-1 overflow-y-auto min-h-0">
             {navItems.map((item) => {
               const Icon = item.icon;
               const active = activeNav === item.label;
@@ -209,9 +211,19 @@ export const LabDashboard: React.FC<LabDashboardProps> = ({ onLogout, onNavigate
               );
             })}
           </nav>
+          <div className="pt-3 border-t border-white/10 shrink-0">
+            <button
+              onClick={onLogout}
+              className="w-full h-11 rounded-lg flex items-center gap-3 px-3 text-sm font-black text-red-100 hover:bg-red-500/15 transition-colors"
+              title="Logout"
+            >
+              <LogOut className="w-4 h-4" />
+              {sidebarOpen && <span>Logout</span>}
+            </button>
+          </div>
         </aside>
 
-        <main className="flex-1 p-4 lg:p-6 space-y-4 overflow-hidden">
+        <main className="flex-1 p-4 lg:p-6 space-y-4 overflow-y-auto min-w-0">
           {error && (
             <div className="rounded-lg border border-red-200 bg-red-50 text-red-700 p-3 text-sm font-bold flex items-center gap-2">
               <AlertCircle className="w-4 h-4" /> {error}

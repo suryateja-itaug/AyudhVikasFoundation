@@ -10,6 +10,8 @@ function asRoles(user) {
 
 export async function migrateToNewSchema(db) {
   const users = await db.listUsers({});
+  const fundAccounts = await db.list('fund360_accounts').catch(() => []);
+  const fundAccountUsers = new Set(fundAccounts.map((account) => account.userId));
   for (const user of users) {
     const roles = asRoles(user);
     const primaryRole = user.primaryRole || user.role || roles[0];
@@ -20,6 +22,20 @@ export async function migrateToNewSchema(db) {
         primaryRole,
         role: primaryRole,
       });
+    }
+    if (!fundAccountUsers.has(user.id)) {
+      await db.create('fund360_accounts', {
+        id: makeId('F360A'),
+        userId: user.id,
+        userRole: primaryRole,
+        status: 'NOT_ENROLLED',
+        displayName: user.name,
+        phone: user.phone || '',
+        email: user.email || '',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+      fundAccountUsers.add(user.id);
     }
   }
 

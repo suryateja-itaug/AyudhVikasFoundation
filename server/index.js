@@ -48,6 +48,34 @@ const AUTHORIZED_SESSION_STATUSES = new Set([
 ]);
 const CLOSED_SESSION_STATUSES = new Set(['Completed', 'SESSION_FINISHED']);
 const SENSITIVE_COLLECTIONS = new Set(['health_records', 'prescriptions', 'reminders']);
+const FUND360_COLLECTIONS = new Set([
+  'fund360_accounts',
+  'fund360_participations',
+  'fund360_transactions',
+  'fund360_monthly_payments',
+  'fund360_milestones',
+  'fund360_benefits',
+  'fund360_service_participations',
+  'fund360_celebration_preferences',
+  'fund360_eligibility_records',
+]);
+const FUND360_ANNUAL_AMOUNT = 365;
+const FUND360_MONTHLY_AMOUNT = 30;
+const FUND360_SERVICE_MAX = 365;
+
+const FUND360_BENEFIT_DEFINITIONS = [
+  { year: 1, code: 'YEAR1_MEMBER_ID', title: 'Active Fund 365 member ID', description: 'Member ID confirming active Ayudh Vikas Fund 365 participation.' },
+  { year: 1, code: 'YEAR1_AWARENESS', title: 'Health awareness resources', description: 'Selected health awareness and community care resources.' },
+  { year: 2, code: 'YEAR2_CELEBRATION', title: 'Birthday / community appreciation', description: 'Birthday appreciation or community service in the participant name.' },
+  { year: 3, code: 'YEAR3_SCREENING', title: 'Preventive health screening eligibility', description: 'Full-body health screening eligibility after the required continuity.' },
+  { year: 4, code: 'YEAR4_CERTIFICATE', title: 'Digital participation certificate', description: 'AVF Certificate of Continuous Participation after completing the required continuity and verification.' },
+  {
+    year: 4,
+    code: 'YEAR4_HEALTH_ASSISTANCE',
+    title: 'Health insurance / assistance eligibility',
+    description: 'Eligible for applicable health insurance / health assistance benefit up to ₹1,00,000, subject to programme eligibility, verification, provider/policy terms, availability and applicable conditions.',
+  },
+];
 
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
@@ -225,6 +253,223 @@ async function getActor(req) {
     hospital,
     doctor,
     lab,
+  };
+}
+
+async function auditFund360(action, actor, targetUserId, details = {}) {
+  try {
+    await db.create('audit_logs', {
+      id: makeId('AUD'),
+      area: 'FUND360',
+      action,
+      actorUserId: actor?.user?.id || actor?.id || targetUserId,
+      actorRole: actor?.role || actor?.primaryRole || actor?.user?.role || '',
+      targetUserId,
+      details,
+      createdAt: formatDateTime(),
+    });
+  } catch (err) {
+    console.warn('[audit] Fund360 audit failed:', err.message);
+  }
+}
+
+function addDays(date, days) {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+function monthsBetween(start, end = new Date()) {
+  if (!start) return 0;
+  const a = new Date(start);
+  const b = new Date(end);
+  if (Number.isNaN(a.getTime())) return 0;
+  return Math.max(0, (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth()));
+}
+
+function completedYears(start, end = new Date()) {
+  if (!start) return 0;
+  const a = new Date(start);
+  const b = new Date(end);
+  if (Number.isNaN(a.getTime())) return 0;
+  let years = b.getFullYear() - a.getFullYear();
+  if (b.getMonth() < a.getMonth() || (b.getMonth() === a.getMonth() && b.getDate() < a.getDate())) years -= 1;
+  return Math.max(0, years);
+}
+
+function publicFund360User(user) {
+  return {
+    id: user.id,
+    name: user.name,
+    email: user.email || '',
+    phone: user.phone || '',
+    role: user.primaryRole || user.role,
+    roles: user.roles || [user.primaryRole || user.role],
+    patientId: user.patientId || '',
+    district: user.district || user.data?.district || '',
+    address: user.address || user.data?.address || '',
+    dateOfBirth: user.dateOfBirth || user.data?.dateOfBirth || user.data?.dob || '',
+  };
+}
+
+async function ensureFund360Account(user, actor = null) {
+  if (!user?.id) throw new Error('Authenticated user is required for FUND 365.');
+  const existing = (await db.list('fund360_accounts', { userId: user.id }))[0];
+  if (existing) return existing;
+  const now = formatDateTime();
+  const account = await db.create('fund360_accounts', {
+    id: makeId('F360A'),
+    userId: user.id,
+    userRole: user.primaryRole || user.role || 'patient',
+    status: 'NOT_ENROLLED',
+    displayName: user.name,
+    phone: user.phone || '',
+    email: user.email || '',
+    createdAt: now,
+    updatedAt: now,
+  });
+  await auditFund360('ACCOUNT_CREATED', actor || user, user.id, { accountId: account.id });
+  return account;
+}
+
+async function ensureFund360Milestones(account, participation = null) {
+  const existing = await db.list('fund360_milestones', { accountId: account.id });
+  const milestoneTitles = {
+    1: 'Active Membership / Member ID',
+    2: 'Birthday / Community Celebration',
+    3: 'Full Body Health Screening',
+    4: 'Certificate + Health Assistance Eligibility',
+  };
+  const normalized = await Promise.all(existing.map((item) => {
+    const desiredTitle = milestoneTitles[Number(item.year)];
+    if (desiredTitle && item.title !== desiredTitle) {
+      return db.update('fund360_milestones', item.id, { title: desiredTitle });
+    }
+    return item;
+  }));
+  const existingKeys = new Set(normalized.map((item) => String(item.year)));
+  const created = [];
+  for (const year of [1, 2, 3, 4]) {
+    if (existingKeys.has(String(year))) continue;
+    created.push(await db.create('fund360_milestones', {
+      id: makeId('F360M'),
+      accountId: account.id,
+      userId: account.userId,
+      participationId: participation?.id || '',
+      year,
+      title: milestoneTitles[year],
+      status: 'LOCKED',
+      eligibleAt: '',
+      completedAt: '',
+      updatedBy: '',
+    }));
+  }
+  return [...normalized, ...created].sort((a, b) => Number(a.year) - Number(b.year));
+}
+
+async function ensureFund360Benefits(account, participation = null) {
+  const existing = await db.list('fund360_benefits', { accountId: account.id });
+  const normalized = await Promise.all(existing.map((item) => {
+    if (item.code === 'YEAR1_CERTIFICATE') {
+      return db.update('fund360_benefits', item.id, {
+        year: 4,
+        code: 'YEAR4_CERTIFICATE',
+        title: 'Digital participation certificate',
+        description: 'AVF Certificate of Continuous Participation after completing the required continuity and verification.',
+      });
+    }
+    return item;
+  }));
+  const existingCodes = new Set(normalized.map((item) => item.code));
+  const created = [];
+  for (const definition of FUND360_BENEFIT_DEFINITIONS) {
+    if (existingCodes.has(definition.code)) continue;
+    created.push(await db.create('fund360_benefits', {
+      id: makeId('F360B'),
+      accountId: account.id,
+      userId: account.userId,
+      participationId: participation?.id || '',
+      ...definition,
+      status: 'LOCKED',
+      configurable: true,
+      completedAt: '',
+      updatedBy: '',
+    }));
+  }
+  return [...normalized, ...created].sort((a, b) => Number(a.year) - Number(b.year));
+}
+
+async function getFund360Bundle(user) {
+  const account = await ensureFund360Account(user);
+  const participations = (await db.list('fund360_participations', { accountId: account.id }))
+    .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+  const activeParticipation = participations.find((item) => item.status === 'ACTIVE') || participations[0] || null;
+  const [transactions, monthlyPayments, serviceParticipations, celebrationPreferences, eligibilityRecords] = await Promise.all([
+    db.list('fund360_transactions', { accountId: account.id }),
+    db.list('fund360_monthly_payments', { accountId: account.id }),
+    db.list('fund360_service_participations', { accountId: account.id }),
+    db.list('fund360_celebration_preferences', { accountId: account.id }),
+    db.list('fund360_eligibility_records', { accountId: account.id }),
+  ]);
+  let milestones = await ensureFund360Milestones(account, activeParticipation);
+  let benefits = await ensureFund360Benefits(account, activeParticipation);
+  if (activeParticipation) {
+    const completed = completedYears(activeParticipation.startDate);
+    milestones = await Promise.all(milestones.map(async (milestone) => {
+      const year = Number(milestone.year);
+      const nextStatus = completed >= year
+        ? (milestone.status === 'COMPLETED' ? 'COMPLETED' : 'ELIGIBLE')
+        : activeParticipation.status === 'ACTIVE' && year === completed + 1
+          ? 'IN_PROGRESS'
+          : 'LOCKED';
+      if (milestone.status !== nextStatus || milestone.participationId !== activeParticipation.id) {
+        return db.update('fund360_milestones', milestone.id, {
+          status: nextStatus,
+          participationId: activeParticipation.id,
+          eligibleAt: nextStatus === 'ELIGIBLE' && !milestone.eligibleAt ? formatDateTime() : milestone.eligibleAt,
+        });
+      }
+      return milestone;
+    }));
+    benefits = await Promise.all(benefits.map(async (benefit) => {
+      const year = Number(benefit.year);
+      const nextStatus = completed >= year ? (benefit.status === 'COMPLETED' ? 'COMPLETED' : 'ELIGIBLE') : 'LOCKED';
+      if (benefit.status !== nextStatus || benefit.participationId !== activeParticipation.id) {
+        return db.update('fund360_benefits', benefit.id, {
+          status: nextStatus,
+          participationId: activeParticipation.id,
+        });
+      }
+      return benefit;
+    }));
+  }
+  const successfulTransactions = transactions.filter((txn) => txn.status === 'SUCCESS');
+  const totalContributions = successfulTransactions.reduce((sum, txn) => sum + Number(txn.amount || 0), 0);
+  const currentYear = activeParticipation?.startDate ? Math.min(4, completedYears(activeParticipation.startDate) + 1) : 0;
+  return {
+    account,
+    profile: publicFund360User(user),
+    participation: activeParticipation,
+    participations,
+    transactions: transactions.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || ''))),
+    monthlyPayments: monthlyPayments.sort((a, b) => String(b.dueDate || b.createdAt || '').localeCompare(String(a.dueDate || a.createdAt || ''))),
+    milestones,
+    benefits,
+    serviceParticipations,
+    celebrationPreferences,
+    eligibilityRecords,
+    summary: {
+      status: account.status || 'NOT_ENROLLED',
+      participationType: activeParticipation?.type || '',
+      startDate: activeParticipation?.startDate || '',
+      currentYear,
+      currentStreak: activeParticipation?.currentStreak || 0,
+      continuousMonths: activeParticipation?.continuousMonths || 0,
+      totalContributions,
+      nextDueDate: activeParticipation?.nextDueDate || '',
+      successfulPayments: successfulTransactions.length,
+      pendingPayments: transactions.filter((txn) => txn.status === 'PROCESSING' || txn.status === 'PENDING_VERIFICATION').length,
+    },
   };
 }
 
@@ -622,6 +867,7 @@ app.post('/api/auth/register', async (req, res) => {
         emailVerified: !email,
       },
     });
+    await ensureFund360Account(user, user);
 
     if (role === 'patient') {
       await db.create('patients', {
@@ -852,6 +1098,293 @@ app.get('/api/bootstrap', async (req, res) => {
 
 app.get('/api/stats', async (_req, res) => {
   res.json({ mode: db.mode(), mongodb: db.mongoReady(), ...(await db.counts()) });
+});
+
+app.get('/api/fund360/account', authRequired, async (req, res) => {
+  try {
+    const user = await db.getUser(req.user.id);
+    if (!user) return res.status(401).json({ error: 'User not found.' });
+    const bundle = await getFund360Bundle(user);
+    res.json(bundle);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Unable to load FUND 365 account.' });
+  }
+});
+
+app.post('/api/fund360/participation', authRequired, async (req, res) => {
+  try {
+    const user = await db.getUser(req.user.id);
+    if (!user) return res.status(401).json({ error: 'User not found.' });
+    const account = await ensureFund360Account(user, req.user);
+    const body = req.body || {};
+    const type = String(body.type || '').toUpperCase();
+    const validTypes = ['ANNUAL', 'MONTHLY', 'VOLUNTEER', 'SERVICE_CONTRIBUTION'];
+    if (!validTypes.includes(type)) return res.status(400).json({ error: 'Select a valid FUND 365 participation option.' });
+
+    const active = (await db.list('fund360_participations', { accountId: account.id })).find((item) => item.status === 'ACTIVE');
+    if (active && ['ANNUAL', 'MONTHLY'].includes(type)) {
+      return res.status(409).json({ error: 'You already have an active FUND 365 participation.' });
+    }
+
+    if (type === 'SERVICE_CONTRIBUTION') {
+      const contributionAmount = Number(body.contributionAmount || 0);
+      if (Number.isNaN(contributionAmount) || contributionAmount < 0 || contributionAmount > FUND360_SERVICE_MAX) {
+        return res.status(400).json({ error: 'Service contribution must be between ₹0 and ₹365.' });
+      }
+      if (!String(body.serviceType || '').trim()) return res.status(400).json({ error: 'Service type is required.' });
+      const participation = await db.create('fund360_participations', {
+        id: makeId('F360P'),
+        accountId: account.id,
+        userId: user.id,
+        type,
+        status: contributionAmount > 0 ? 'PENDING_PAYMENT' : 'PENDING_REVIEW',
+        startDate: '',
+        currentYear: 0,
+        currentStreak: 0,
+        continuousMonths: 0,
+        contributionAmount,
+        serviceType: body.serviceType,
+        serviceDescription: body.serviceDescription || '',
+      });
+      const service = await db.create('fund360_service_participations', {
+        id: makeId('F360S'),
+        accountId: account.id,
+        userId: user.id,
+        participationId: participation.id,
+        serviceType: body.serviceType,
+        description: body.serviceDescription || '',
+        contributionAmount,
+        status: contributionAmount > 0 ? 'PENDING_PAYMENT' : 'SUBMITTED_FOR_REVIEW',
+        verificationStatus: 'PENDING',
+        participationPeriod: new Date().getFullYear(),
+      });
+      let transaction = null;
+      if (contributionAmount > 0) {
+        transaction = await db.create('fund360_transactions', {
+          id: makeId('F360T'),
+          accountId: account.id,
+          userId: user.id,
+          participationId: participation.id,
+          type: 'SERVICE_CONTRIBUTION',
+          amount: contributionAmount,
+          currency: 'INR',
+          status: 'PROCESSING',
+          gateway: process.env.FUND360_PAYMENT_GATEWAY || 'internal_manual',
+          reference: makeId('F360ORD'),
+          idempotencyKey: body.idempotencyKey || makeId('IDEM'),
+          description: 'FUND 365 service contribution',
+        });
+      }
+      await db.update('fund360_accounts', account.id, { status: participation.status, lastParticipationId: participation.id });
+      await auditFund360('SERVICE_PARTICIPATION_CREATED', req.user, user.id, { participationId: participation.id, serviceId: service.id });
+      return res.status(201).json({ participation, service, transaction, account: await db.get('fund360_accounts', account.id) });
+    }
+
+    if (type === 'VOLUNTEER') {
+      const participation = await db.create('fund360_participations', {
+        id: makeId('F360P'),
+        accountId: account.id,
+        userId: user.id,
+        type,
+        status: 'PENDING_CONTACT',
+        startDate: '',
+        currentYear: 0,
+        currentStreak: 0,
+        continuousMonths: 0,
+        contactPreference: body.contactPreference || 'phone',
+        notes: body.notes || 'Volunteer interest submitted from FUND 365.',
+      });
+      await db.create('enquiries', {
+        id: makeId('ENQ'),
+        type: 'fund360_volunteer',
+        userId: user.id,
+        fullName: user.name,
+        phone: user.phone || '',
+        email: user.email || '',
+        status: 'New',
+        needDescription: body.notes || 'FUND 365 volunteer participation request',
+        requestedAt: formatDateTime(),
+      });
+      const item = await db.update('fund360_accounts', account.id, { status: 'VOLUNTEER_CONTACT_REQUESTED', lastParticipationId: participation.id });
+      await auditFund360('VOLUNTEER_INTEREST_SUBMITTED', req.user, user.id, { participationId: participation.id });
+      return res.status(201).json({ participation, account: item });
+    }
+
+    const amount = type === 'ANNUAL' ? FUND360_ANNUAL_AMOUNT : FUND360_MONTHLY_AMOUNT;
+    const participation = await db.create('fund360_participations', {
+      id: makeId('F360P'),
+      accountId: account.id,
+      userId: user.id,
+      type,
+      status: 'PENDING_PAYMENT',
+      startDate: '',
+      currentYear: 0,
+      currentStreak: 0,
+      continuousMonths: 0,
+      amount,
+      cycleNumber: 1,
+      mandateReference: type === 'MONTHLY' ? body.mandateReference || '' : '',
+    });
+    const transaction = await db.create('fund360_transactions', {
+      id: makeId('F360T'),
+      accountId: account.id,
+      userId: user.id,
+      participationId: participation.id,
+      type: type === 'ANNUAL' ? 'ANNUAL_PARTICIPATION' : 'MONTHLY_PARTICIPATION',
+      amount,
+      currency: 'INR',
+      status: 'PROCESSING',
+      gateway: process.env.FUND360_PAYMENT_GATEWAY || 'internal_manual',
+      reference: makeId('F360ORD'),
+      idempotencyKey: body.idempotencyKey || makeId('IDEM'),
+      description: type === 'ANNUAL' ? '₹365 annual FUND 365 participation' : '₹30 monthly FUND 365 participation',
+    });
+    const item = await db.update('fund360_accounts', account.id, { status: 'PENDING_PAYMENT', lastParticipationId: participation.id });
+    await auditFund360('PARTICIPATION_STARTED', req.user, user.id, { participationId: participation.id, transactionId: transaction.id, type });
+    res.status(201).json({ account: item, participation, transaction });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Unable to start FUND 365 participation.' });
+  }
+});
+
+app.post('/api/fund360/transactions/:id/verify', authRequired, async (req, res) => {
+  try {
+    const user = await db.getUser(req.user.id);
+    const transaction = await db.get('fund360_transactions', req.params.id);
+    if (!transaction) return res.status(404).json({ error: 'FUND 365 transaction not found.' });
+    if (transaction.userId !== req.user.id && !userHasRole(req.user, 'admin')) {
+      return res.status(403).json({ error: 'You can verify only your own FUND 365 transactions.' });
+    }
+    if (transaction.status === 'SUCCESS') {
+      return res.json({ transaction, account: (await db.list('fund360_accounts', { userId: transaction.userId }))[0] });
+    }
+    const body = req.body || {};
+    const amount = Number(body.amount || transaction.amount);
+    if (amount !== Number(transaction.amount)) return res.status(400).json({ error: 'Payment amount does not match the server order.' });
+    const gatewayReference = String(body.gatewayReference || body.reference || transaction.reference || '').trim();
+    if (!gatewayReference) return res.status(400).json({ error: 'Payment reference is required for verification.' });
+
+    const now = formatDateTime();
+    const updatedTxn = await db.update('fund360_transactions', transaction.id, {
+      status: 'SUCCESS',
+      verifiedAt: now,
+      gatewayReference,
+      verificationMode: process.env.FUND360_PAYMENT_GATEWAY ? 'gateway_callback' : 'internal_manual',
+    });
+    const participation = await db.get('fund360_participations', transaction.participationId);
+    const account = await db.get('fund360_accounts', transaction.accountId);
+    let updatedParticipation = participation;
+    if (participation) {
+      const patch = {
+        status: 'ACTIVE',
+        startDate: participation.startDate || now,
+        lastPaymentAt: now,
+        totalPaid: Number(participation.totalPaid || 0) + Number(transaction.amount || 0),
+      };
+      if (participation.type === 'ANNUAL') {
+        patch.endDate = addDays(patch.startDate, 365).toISOString();
+        patch.currentYear = Math.min(4, completedYears(patch.startDate) + 1);
+        patch.currentStreak = Math.max(1, Number(participation.currentStreak || 0), 1);
+        patch.continuousMonths = Math.max(12, Number(participation.continuousMonths || 0), 12);
+        patch.nextDueDate = patch.endDate;
+      }
+      if (participation.type === 'MONTHLY') {
+        patch.currentYear = Math.min(4, Math.floor((Number(participation.continuousMonths || 0) + 1) / 12) + 1);
+        patch.currentStreak = Number(participation.currentStreak || 0) + 1;
+        patch.continuousMonths = Number(participation.continuousMonths || 0) + 1;
+        patch.nextDueDate = addDays(now, 30).toISOString();
+        await db.create('fund360_monthly_payments', {
+          id: makeId('F360MP'),
+          accountId: transaction.accountId,
+          userId: transaction.userId,
+          participationId: participation.id,
+          transactionId: transaction.id,
+          monthNumber: patch.continuousMonths,
+          amount: Number(transaction.amount || 0),
+          status: 'SUCCESS',
+          dueDate: now,
+          paidAt: now,
+        });
+      }
+      if (participation.type === 'SERVICE_CONTRIBUTION') {
+        patch.status = 'SUBMITTED_FOR_REVIEW';
+        const services = await db.list('fund360_service_participations', { participationId: participation.id });
+        for (const service of services) {
+          await db.update('fund360_service_participations', service.id, { status: 'CONTRIBUTION_VERIFIED', paymentStatus: 'SUCCESS' });
+        }
+      }
+      updatedParticipation = await db.update('fund360_participations', participation.id, patch);
+    }
+    const updatedAccount = await db.update('fund360_accounts', account.id, {
+      status: updatedParticipation?.status === 'ACTIVE' ? 'ENROLLED' : updatedParticipation?.status || 'PAYMENT_VERIFIED',
+      enrolledAt: updatedParticipation?.status === 'ACTIVE' ? (account.enrolledAt || now) : account.enrolledAt,
+      lastParticipationId: updatedParticipation?.id || account.lastParticipationId,
+    });
+    await db.create('wallet_txns', {
+      id: makeId('WAL'),
+      userId: transaction.userId,
+      amount: Number(transaction.amount || 0),
+      type: 'fund360_contribution',
+      note: transaction.description,
+      referenceId: transaction.id,
+      status: 'SUCCESS',
+      balanceAfter: 0,
+    });
+    await ensureFund360Milestones(updatedAccount, updatedParticipation);
+    await ensureFund360Benefits(updatedAccount, updatedParticipation);
+    await auditFund360('PAYMENT_SUCCESS', req.user, transaction.userId, { transactionId: transaction.id, participationId: updatedParticipation?.id });
+    res.json({ account: updatedAccount, participation: updatedParticipation, transaction: updatedTxn });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Unable to verify FUND 365 payment.' });
+  }
+});
+
+app.get('/api/admin/fund360', requireRole('admin'), async (_req, res) => {
+  const [accounts, participations, transactions, milestones, benefits, services, users] = await Promise.all([
+    db.list('fund360_accounts'),
+    db.list('fund360_participations'),
+    db.list('fund360_transactions'),
+    db.list('fund360_milestones'),
+    db.list('fund360_benefits'),
+    db.list('fund360_service_participations'),
+    db.listUsers({}),
+  ]);
+  const userMap = new Map(users.map((user) => [user.id, user]));
+  res.json({
+    items: accounts.map((account) => ({
+      ...account,
+      user: publicFund360User(userMap.get(account.userId) || {}),
+      participation: participations.find((item) => item.id === account.lastParticipationId || (item.accountId === account.id && item.status === 'ACTIVE')) || null,
+      transactions: transactions.filter((item) => item.accountId === account.id),
+      milestones: milestones.filter((item) => item.accountId === account.id),
+      benefits: benefits.filter((item) => item.accountId === account.id),
+      services: services.filter((item) => item.accountId === account.id),
+    })),
+  });
+});
+
+app.patch('/api/admin/fund360/:collection/:id', requireRole('admin'), async (req, res) => {
+  const allowed = {
+    milestones: 'fund360_milestones',
+    benefits: 'fund360_benefits',
+    services: 'fund360_service_participations',
+    eligibility: 'fund360_eligibility_records',
+    celebrations: 'fund360_celebration_preferences',
+  };
+  const collection = allowed[req.params.collection];
+  if (!collection) return res.status(404).json({ error: 'Unknown FUND 365 admin section.' });
+  const existing = await db.get(collection, req.params.id);
+  if (!existing) return res.status(404).json({ error: 'FUND 365 record not found.' });
+  const item = await db.update(collection, req.params.id, {
+    ...(req.body || {}),
+    updatedBy: req.user.id,
+    adminUpdatedAt: formatDateTime(),
+  });
+  await auditFund360('ADMIN_STATUS_UPDATE', req.user, item.userId, { collection, id: item.id, patch: req.body || {} });
+  res.json({ item });
 });
 
 app.get('/api/authorized-patients', authRequired, async (req, res) => {
@@ -1878,6 +2411,9 @@ app.patch('/api/records/appointments/:id/discharge', authRequired, async (req, r
 app.get('/api/records/:collection', async (req, res) => {
   const { collection } = req.params;
   if (!assertCollection(collection)) return res.status(404).json({ error: 'Unknown collection' });
+  if (FUND360_COLLECTIONS.has(collection) && !userHasRole(req.user, 'admin')) {
+    return res.status(403).json({ error: 'Use the FUND 365 API for programme records.' });
+  }
   const publicRead = PUBLIC_READ_COLLECTIONS.includes(collection);
   if (!publicRead && !req.user) return res.status(401).json({ error: 'Authentication required' });
 
@@ -1918,6 +2454,9 @@ app.get('/api/records/:collection', async (req, res) => {
 app.get('/api/records/:collection/:id', async (req, res) => {
   const { collection, id } = req.params;
   if (!assertCollection(collection)) return res.status(404).json({ error: 'Unknown collection' });
+  if (FUND360_COLLECTIONS.has(collection) && !userHasRole(req.user, 'admin')) {
+    return res.status(403).json({ error: 'Use the FUND 365 API for programme records.' });
+  }
   const publicRead = PUBLIC_READ_COLLECTIONS.includes(collection);
   if (!publicRead && !req.user) return res.status(401).json({ error: 'Authentication required' });
   const item = await db.get(collection, id);
@@ -1937,6 +2476,9 @@ app.get('/api/records/:collection/:id', async (req, res) => {
 app.post('/api/records/:collection', async (req, res) => {
   const { collection } = req.params;
   if (!assertCollection(collection)) return res.status(404).json({ error: 'Unknown collection' });
+  if (FUND360_COLLECTIONS.has(collection) && !userHasRole(req.user, 'admin')) {
+    return res.status(403).json({ error: 'Use the FUND 365 API for programme records.' });
+  }
   const publicCreate = PUBLIC_CREATE_COLLECTIONS.includes(collection);
   if (!publicCreate && !req.user) return res.status(401).json({ error: 'Authentication required' });
 
@@ -1982,6 +2524,16 @@ app.post('/api/records/:collection', async (req, res) => {
       doctor_verification_actions: 'DVA',
       hospital_verification_actions: 'HVA',
       subscription_plans: 'PLAN',
+      fund360_accounts: 'F360A',
+      fund360_participations: 'F360P',
+      fund360_transactions: 'F360T',
+      fund360_monthly_payments: 'F360MP',
+      fund360_milestones: 'F360M',
+      fund360_benefits: 'F360B',
+      fund360_service_participations: 'F360S',
+      fund360_celebration_preferences: 'F360C',
+      fund360_eligibility_records: 'F360E',
+      audit_logs: 'AUD',
     };
     payload.id = makeId(prefixes[collection] || 'REC');
   }
@@ -2129,6 +2681,9 @@ app.post('/api/records/:collection', async (req, res) => {
 app.patch('/api/records/:collection/:id', authRequired, async (req, res) => {
   const { collection, id } = req.params;
   if (!assertCollection(collection)) return res.status(404).json({ error: 'Unknown collection' });
+  if (FUND360_COLLECTIONS.has(collection) && !userHasRole(req.user, 'admin')) {
+    return res.status(403).json({ error: 'Use the FUND 365 API for programme records.' });
+  }
   const patch = { ...(req.body || {}) };
   if (['visit_requests', 'appointments'].includes(collection) && isAuthorizedStatus(patch.status)) {
     patch.authorizedAt = patch.authorizedAt || formatDateTime();
@@ -2162,6 +2717,9 @@ app.patch('/api/records/:collection/:id', authRequired, async (req, res) => {
 app.delete('/api/records/:collection/:id', authRequired, async (req, res) => {
   const { collection, id } = req.params;
   if (!assertCollection(collection)) return res.status(404).json({ error: 'Unknown collection' });
+  if (FUND360_COLLECTIONS.has(collection) && !userHasRole(req.user, 'admin')) {
+    return res.status(403).json({ error: 'Use the FUND 365 API for programme records.' });
+  }
   const existing = await db.get(collection, id);
   if (!existing) return res.status(404).json({ error: 'Not found' });
   if (SENSITIVE_COLLECTIONS.has(collection)) {

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { PhoneCall, ChevronDown, Menu, X, UserCheck, UserPlus } from 'lucide-react';
+import { PhoneCall, ChevronDown, Menu, X, UserCheck, UserPlus, HeartHandshake } from 'lucide-react';
 import { BrandLogo } from './BrandLogo';
 import { ActiveModal } from '../types';
 
@@ -11,9 +11,10 @@ interface NavbarProps {
   onPartnerClick?: () => void;
   onAmbulanceClick?: () => void;
   onLabsClick?: () => void;
+  onFund360Click?: () => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ onOpenModal, activeTab, setActiveTab, onSignInClick, onPartnerClick, onAmbulanceClick, onLabsClick }) => {
+export const Navbar: React.FC<NavbarProps> = ({ onOpenModal, activeTab, setActiveTab, onSignInClick, onPartnerClick, onAmbulanceClick, onLabsClick, onFund360Click }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [servicesDropdownOpen, setServicesDropdownOpen] = useState(false);
 
@@ -155,6 +156,16 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenModal, activeTab, setActiv
             <span>Register Now</span>
           </button>
           <button
+            onClick={() => {
+              if (onFund360Click) onFund360Click();
+              else onOpenModal('register_patient');
+            }}
+            className="hidden md:flex items-center gap-2 rounded-md border border-emerald-700 bg-white px-4 py-2 text-xs font-black text-emerald-900 shadow-sm hover:bg-emerald-50 transition-all cursor-pointer"
+          >
+            <HeartHandshake className="w-4 h-4 text-emerald-700" />
+            <span>FUND 365</span>
+          </button>
+          <button
             onClick={() => onOpenModal('emergency_help')}
             className="bg-[#f0505d] hover:bg-red-600 text-white rounded-lg px-3 sm:px-4 py-2 flex items-center gap-2.5 shadow-md hover:shadow-lg transition-all border border-red-500 cursor-pointer"
           >
@@ -293,6 +304,17 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenModal, activeTab, setActiv
               ))}
             </div>
           )}
+          <button
+            onClick={() => {
+              if (onFund360Click) onFund360Click();
+              else onOpenModal('register_patient');
+              setMobileMenuOpen(false);
+            }}
+            className="w-full rounded bg-emerald-600 text-white px-3 py-2 text-xs font-black flex items-center justify-center gap-2"
+          >
+            <HeartHandshake className="w-4 h-4" />
+            FUND 365
+          </button>
         </div>
       )}
     </header>

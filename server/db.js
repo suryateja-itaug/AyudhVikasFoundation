@@ -37,6 +37,16 @@ const COLLECTIONS = [
   'doctor_verification_actions',
   'hospital_verification_actions',
   'subscription_plans',
+  'fund360_accounts',
+  'fund360_participations',
+  'fund360_transactions',
+  'fund360_monthly_payments',
+  'fund360_milestones',
+  'fund360_benefits',
+  'fund360_service_participations',
+  'fund360_celebration_preferences',
+  'fund360_eligibility_records',
+  'audit_logs',
 ];
 
 function emptyStore() {
