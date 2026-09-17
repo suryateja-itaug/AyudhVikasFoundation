@@ -46,8 +46,24 @@ const COLLECTIONS = [
   'fund360_service_participations',
   'fund360_celebration_preferences',
   'fund360_eligibility_records',
+  'auth_sessions',
   'audit_logs',
 ];
+
+const SENSITIVE_USER_DATA_KEYS = new Set([
+  'password',
+  'password_hash',
+  'passwordHash',
+  'confirmPassword',
+  'verificationToken',
+  'verificationTokenExpiry',
+  'resetToken',
+  'resetTokenHash',
+  'resetOtp',
+  'resetOtpHash',
+  'refreshToken',
+  'refreshTokenHash',
+]);
 
 function emptyStore() {
   const collections = {};
@@ -140,6 +156,23 @@ function withoutMongoId(doc) {
   return rest;
 }
 
+function publicUserData(data = {}) {
+  const safe = {};
+  for (const [key, value] of Object.entries(data || {})) {
+    if (!SENSITIVE_USER_DATA_KEYS.has(key)) safe[key] = value;
+  }
+  return safe;
+}
+
+function safeUserPatchData(patch = {}) {
+  const source = patch.data || patch;
+  const safe = {};
+  for (const [key, value] of Object.entries(source || {})) {
+    if (!SENSITIVE_USER_DATA_KEYS.has(key)) safe[key] = value;
+  }
+  return safe;
+}
+
 function matchesFilter(record, filter = {}) {
   return Object.entries(filter).every(([key, value]) => {
     if (value === undefined || value === null || value === '') return true;
@@ -192,6 +225,9 @@ export function createDb(onChange) {
       await collection(name).createIndex({ id: 1 }, { unique: true });
       await collection(name).createIndex({ createdAt: -1 });
     }
+    await collection('auth_sessions').createIndex({ refreshTokenHash: 1 }, { unique: true, sparse: true });
+    await collection('auth_sessions').createIndex({ userId: 1, revokedAt: 1 });
+    await collection('auth_sessions').createIndex({ expiresAt: 1 });
   }
 
   async function importLocalIfMongoEmpty() {
@@ -313,18 +349,19 @@ export function createDb(onChange) {
   function publicUser(user) {
     if (!user) return null;
     const { password_hash, passwordHash, _id, ...rest } = user;
+    const safeData = publicUserData(rest.data || {});
     const roles = Array.isArray(rest.roles) && rest.roles.length
       ? rest.roles
-      : [rest.primaryRole || rest.role || rest.data?.role || 'patient'];
+      : [rest.primaryRole || rest.role || safeData.role || 'patient'];
     const primaryRole = rest.primaryRole || rest.role || roles[0];
     return {
       id: rest.id,
       name: rest.name,
-      email: rest.email || rest.data?.email || '',
-      phone: rest.phone || rest.data?.phone || '',
-      emailVerified: rest.emailVerified ?? rest.data?.emailVerified ?? true,
+      email: rest.email || safeData.email || '',
+      phone: rest.phone || safeData.phone || '',
+      emailVerified: rest.emailVerified ?? safeData.emailVerified ?? true,
       createdAt: rest.created_at || rest.createdAt,
-      ...(rest.data || {}),
+      ...safeData,
       role: primaryRole,
       roles,
       primaryRole,
@@ -411,7 +448,7 @@ export function createDb(onChange) {
       emailVerified: user.emailVerified ?? false,
       verificationToken: user.verificationToken || null,
       verificationTokenExpiry: user.verificationTokenExpiry || null,
-      data: user.data || {},
+      data: publicUserData(user.data || {}),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -431,7 +468,7 @@ export function createDb(onChange) {
       ? await collection('users').findOne({ id })
       : store.users.find((user) => user.id === id);
     if (!current) return null;
-    const data = { ...(current.data || {}), ...(patch.data || patch) };
+    const data = { ...(current.data || {}), ...safeUserPatchData(patch) };
     const nextRole = patch.primaryRole ?? patch.role ?? current.primaryRole ?? current.role;
     const nextRoles = patch.roles ?? current.roles ?? [nextRole];
     const next = {
