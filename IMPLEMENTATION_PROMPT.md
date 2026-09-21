@@ -774,6 +774,7 @@ export const RoleSwitcher: React.FC = () => {
 **Create doctor_hospital_assignments table:**
 ```javascript
 // In server/db.js
+//M. Vijender MA ,MBA,(LLB),  Honourable Director-
 const SCHEMA_STATEMENTS = [
   // ... existing tables ...
   `CREATE TABLE IF NOT EXISTS doctor_hospital_assignments (

@@ -8,6 +8,7 @@ import { ServicesGrid } from '../components/ServicesGrid';
 import { StatsBanner } from '../components/StatsBanner';
 import { WidgetsSection } from '../components/WidgetsSection';
 import { InsurancePartners } from '../components/InsurancePartners';
+import { AboutUs } from '../components/AboutUs';
 import { Footer } from '../components/Footer';
 import { Modals } from '../components/Modals';
 import { LoginPage } from '../components/LoginPage';
@@ -223,7 +224,10 @@ export const AppRoutes: React.FC = () => {
     else navigate(roleHome(userRole));
   };
 
-  const handleBackToHome = () => navigate('/');
+  const handleBackToHome = () => {
+    setActiveTab('home');
+    navigate('/');
+  };
   const handleShowPartner = () => navigate('/partner-with-us');
   const handleShowAmbulance = () => navigate('/ambulance-booking');
   const handleShowLabTests = () => navigate('/lab-tests');
@@ -392,17 +396,23 @@ export const AppRoutes: React.FC = () => {
         onFund360Click={handleFund360Entry}
       />
       <main className="flex-1 route-page">
-        <HeroSection onOpenModal={handleOpenModal} onBecomeMemberClick={handleShowPartner} onFund360Click={handleFund360Entry} />
-        <SearchSection onSearchSubmit={setSearchFilters} onOpenModal={handleOpenModal} />
-        <ServicesGrid onOpenModal={handleOpenModal} />
-        <StatsBanner />
-        <WidgetsSection
-          onOpenModal={handleOpenModal}
-          onSelectCamp={(title) => setSelectedCampTitle(title)}
-          onSignInClick={handleShowLogin}
-          onBecomePartnerClick={handleShowPartner}
-        />
-        <InsurancePartners />
+        {activeTab === 'about' ? (
+          <AboutUs />
+        ) : (
+          <>
+            <HeroSection onOpenModal={handleOpenModal} onBecomeMemberClick={handleShowPartner} onFund360Click={handleFund360Entry} />
+            <SearchSection onSearchSubmit={setSearchFilters} onOpenModal={handleOpenModal} />
+            <ServicesGrid onOpenModal={handleOpenModal} />
+            <StatsBanner />
+            <WidgetsSection
+              onOpenModal={handleOpenModal}
+              onSelectCamp={(title) => setSelectedCampTitle(title)}
+              onSignInClick={handleShowLogin}
+              onBecomePartnerClick={handleShowPartner}
+            />
+            <InsurancePartners />
+          </>
+        )}
       </main>
       <Footer onOpenModal={handleOpenModal} setActiveTab={handleSetActiveTab} onSignInClick={handleShowLogin} />
       {sharedModals}
