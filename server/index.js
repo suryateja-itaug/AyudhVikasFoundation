@@ -81,8 +81,20 @@ const FUND360_BENEFIT_DEFINITIONS = [
   },
 ];
 
+function normalizeOrigin(value) {
+  const raw = String(value || '').trim().replace(/\/+$/, '');
+  if (!raw) return '';
+  try {
+    const url = raw.includes('://') ? new URL(raw) : new URL(`https://${raw}`);
+    return url.origin;
+  } catch {
+    return raw;
+  }
+}
+
 function configuredOrigins() {
   const values = [
+    process.env.ALLOWED_ORIGINS,
     process.env.CLIENT_ORIGIN,
     process.env.FRONTEND_URL,
     process.env.APP_URL,
@@ -91,16 +103,39 @@ function configuredOrigins() {
     'http://localhost:3000',
     'http://localhost:5173',
   ];
-  return new Set(values.flatMap((value) => String(value || '').split(',')).map((value) => value.trim()).filter(Boolean));
+  return new Set(
+    values
+      .flatMap((value) => String(value || '').split(','))
+      .map(normalizeOrigin)
+      .filter(Boolean),
+  );
 }
 
 const ALLOWED_ORIGINS = configuredOrigins();
+const ALLOW_VERCEL_PREVIEWS = String(process.env.ALLOW_VERCEL_PREVIEWS || '').toLowerCase() === 'true'
+  || [...ALLOWED_ORIGINS].some((origin) => origin.endsWith('.vercel.app'));
+
+function originAllowed(origin) {
+  const normalized = normalizeOrigin(origin);
+  if (!normalized) return false;
+  if (ALLOWED_ORIGINS.has(normalized)) return true;
+  if (!isProduction && /^http:\/\/localhost:\d+$/.test(normalized)) return true;
+  if (ALLOW_VERCEL_PREVIEWS) {
+    try {
+      const host = new URL(normalized).hostname;
+      if (host === 'vercel.app' || host.endsWith('.vercel.app')) return true;
+    } catch {
+      return false;
+    }
+  }
+  return false;
+}
 
 app.use((req, res, next) => {
   const origin = req.headers.origin;
   if (!origin) {
     res.header('Access-Control-Allow-Origin', '*');
-  } else if (ALLOWED_ORIGINS.has(origin) || (!isProduction && /^http:\/\/localhost:\d+$/.test(origin))) {
+  } else if (originAllowed(origin)) {
     res.header('Access-Control-Allow-Origin', origin);
     res.header('Vary', 'Origin');
   } else if (isProduction) {
