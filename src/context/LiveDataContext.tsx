@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { api } from '../lib/api';
+import { api, apiUrl } from '../lib/api';
 import { useAuthOptional } from './AuthContext';
 
 export type CollectionName =
@@ -183,7 +183,7 @@ export const LiveDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     const connect = () => {
       if (closed) return;
-      const source = new EventSource('/api/stream');
+      const source = new EventSource(apiUrl('/api/stream'));
       streamRef.current = source;
       source.onopen = () => setConnected(true);
       source.onerror = () => {
