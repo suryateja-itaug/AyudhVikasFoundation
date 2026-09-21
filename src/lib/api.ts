@@ -1,19 +1,24 @@
 import { beginApiActivity, endApiActivity } from './apiActivity';
 
 const TOKEN_KEY = 'ayudh_token';
-
-export function getToken(): string | null {
+let accessToken: string | null = (() => {
   try {
-    return localStorage.getItem(TOKEN_KEY);
+    return localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY);
   } catch {
     return null;
   }
+})();
+let refreshPromise: Promise<any> | null = null;
+
+export function getToken(): string | null {
+  return accessToken;
 }
 
 export function setToken(token: string | null) {
+  accessToken = token;
   try {
-    if (token) localStorage.setItem(TOKEN_KEY, token);
-    else localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(TOKEN_KEY);
+    sessionStorage.removeItem(TOKEN_KEY);
   } catch {
     /* ignore */
   }
@@ -33,7 +38,37 @@ function activityLabel(path: string, method = 'GET') {
   return 'Loading';
 }
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+async function refreshAccessToken() {
+  if (refreshPromise) return refreshPromise;
+  refreshPromise = doRefreshAccessToken().finally(() => {
+    refreshPromise = null;
+  });
+  return refreshPromise;
+}
+
+async function doRefreshAccessToken() {
+  const res = await fetch('/api/auth/refresh', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({}),
+  });
+  const text = await res.text();
+  let data: any = {};
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    data = { error: text || 'Unexpected response' };
+  }
+  if (!res.ok) {
+    setToken(null);
+    throw new Error(data.error || 'Session expired');
+  }
+  setToken(data.token || null);
+  return data;
+}
+
+async function request<T>(path: string, options: RequestInit = {}, retry = true): Promise<T> {
   const method = String(options.method || 'GET').toUpperCase();
   beginApiActivity(activityLabel(path, method));
   const headers: Record<string, string> = {
@@ -44,7 +79,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   if (token) headers.Authorization = `Bearer ${token}`;
 
   try {
-    const res = await fetch(path, { ...options, headers });
+    const res = await fetch(path, { ...options, headers, credentials: 'include' });
     const text = await res.text();
     let data: any = {};
     try {
@@ -53,6 +88,10 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
       data = { error: text || 'Unexpected response' };
     }
     if (!res.ok) {
+      if (res.status === 401 && retry && !path.includes('/auth/login') && !path.includes('/auth/register') && !path.includes('/auth/refresh')) {
+        await refreshAccessToken();
+        return request<T>(path, options, false);
+      }
       throw new Error(data.error || `Request failed (${res.status})`);
     }
     return data as T;
@@ -77,12 +116,18 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ identifier, password }),
     }),
+  refresh: () => refreshAccessToken() as Promise<{ token: string; user: any }>,
+  logout: () =>
+    request<{ ok: boolean }>('/api/auth/logout', {
+      method: 'POST',
+      body: JSON.stringify({}),
+    }, false),
   register: (payload: any) =>
     request<{ token: string; user: any; patientId?: string; referenceNo?: string }>('/api/auth/register', {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
-  me: () => request<{ user: any }>('/api/auth/me'),
+  me: () => request<{ user: any; token?: string }>('/api/auth/me'),
   updateMe: (payload: any) =>
     request<{ user: any; token?: string }>('/api/auth/me', { method: 'PATCH', body: JSON.stringify(payload) }),
   users: () => request<{ items: any[] }>('/api/users'),

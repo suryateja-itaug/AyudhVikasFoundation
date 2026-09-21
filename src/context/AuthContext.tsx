@@ -77,22 +77,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const navigate = useNavigate();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [token, setTokenState] = useState<string | null>(() => getToken());
-  const [loading, setLoading] = useState<boolean>(!!getToken());
+  const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
     let cancelled = false;
     const hydrate = async () => {
       const existing = getToken();
       if (!existing) {
-        if (localStorage.getItem(GUEST_FLAG) === '1') {
-          if (!cancelled) setUser(GUEST_USER);
+        try {
+          const refreshed = await api.refresh();
+          if (!cancelled) {
+            setToken(refreshed.token);
+            setTokenState(refreshed.token);
+            setUser(normalizeUser(refreshed.user));
+            setLoading(false);
+          }
+          return;
+        } catch {
+          if (localStorage.getItem(GUEST_FLAG) === '1') {
+            if (!cancelled) setUser(GUEST_USER);
+          }
         }
         setLoading(false);
         return;
       }
       try {
         const res = await api.me();
-        if (!cancelled) setUser(normalizeUser(res.user));
+        if (!cancelled) {
+          if (res.token) {
+            setToken(res.token);
+            setTokenState(res.token);
+          }
+          setUser(normalizeUser(res.user));
+        }
       } catch {
         if (!cancelled) {
           setToken(null);
@@ -141,6 +158,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [navigate]);
 
   const logout = useCallback(() => {
+    void api.logout().catch(() => undefined);
     localStorage.removeItem(GUEST_FLAG);
     localStorage.removeItem(PRIMARY_ROLE_KEY);
     setToken(null);

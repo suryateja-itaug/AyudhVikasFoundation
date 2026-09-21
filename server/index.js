@@ -7,7 +7,7 @@ import { fileURLToPath } from 'url';
 import express from 'express';
 import { createDb, COLLECTIONS } from './db.js';
 import { seedDatabase } from './seed.js';
-import { hashPassword, verifyPassword, signToken as signJwt, verifyToken } from './crypto-auth.js';
+import { hashPassword, verifyPassword, signToken as signJwt, verifyToken, randomToken, sha256 } from './crypto-auth.js';
 import {
   authRequired,
   requireRole,
@@ -32,6 +32,10 @@ import { searchHospitals, searchDoctors } from './search.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const PORT = Number(process.env.PORT || 4000);
+const ACCESS_TOKEN_TTL_SEC = Number(process.env.ACCESS_TOKEN_TTL_SEC || 15 * 60);
+const REFRESH_TOKEN_TTL_DAYS = Number(process.env.REFRESH_TOKEN_TTL_DAYS || 30);
+const REFRESH_COOKIE_NAME = process.env.REFRESH_COOKIE_NAME || 'avf_refresh';
+const isProduction = process.env.NODE_ENV === 'production' || process.env.RENDER || process.env.VERCEL;
 
 const app = express();
 const server = http.createServer(app);
@@ -77,31 +81,218 @@ const FUND360_BENEFIT_DEFINITIONS = [
   },
 ];
 
+function configuredOrigins() {
+  const values = [
+    process.env.CLIENT_ORIGIN,
+    process.env.FRONTEND_URL,
+    process.env.APP_URL,
+    process.env.PUBLIC_APP_URL,
+    process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '',
+    'http://localhost:3000',
+    'http://localhost:5173',
+  ];
+  return new Set(values.flatMap((value) => String(value || '').split(',')).map((value) => value.trim()).filter(Boolean));
+}
+
+const ALLOWED_ORIGINS = configuredOrigins();
+
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  const origin = req.headers.origin;
+  if (!origin) {
+    res.header('Access-Control-Allow-Origin', '*');
+  } else if (ALLOWED_ORIGINS.has(origin) || (!isProduction && /^http:\/\/localhost:\d+$/.test(origin))) {
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Vary', 'Origin');
+  } else if (isProduction) {
+    return res.status(403).json({ error: 'Origin is not allowed.' });
+  } else {
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Vary', 'Origin');
+  }
   res.header('Access-Control-Allow-Credentials', 'true');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.header('Access-Control-Allow-Methods', 'GET,POST,PATCH,DELETE,OPTIONS');
   if (req.method === 'OPTIONS') return res.sendStatus(204);
   next();
 });
+app.use((_, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  next();
+});
 app.use(express.json({ limit: '8mb' }));
 
 let db;
+const loginAttempts = new Map();
 
 function makeId(prefix) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`.toUpperCase();
 }
 
-function signToken(user) {
+function signToken(user, sessionId = '') {
   const roles = userRolesOf(user);
   return signJwt({
     id: user.id,
+    sid: sessionId,
     role: user.primaryRole || user.role || roles[0],
     roles,
     primaryRole: user.primaryRole || user.role || roles[0],
     name: user.name,
+  }, ACCESS_TOKEN_TTL_SEC);
+}
+
+function parseCookies(req) {
+  const header = req.headers.cookie || '';
+  return Object.fromEntries(header.split(';').map((part) => {
+    const index = part.indexOf('=');
+    if (index === -1) return null;
+    const key = decodeURIComponent(part.slice(0, index).trim());
+    const value = decodeURIComponent(part.slice(index + 1).trim());
+    return [key, value];
+  }).filter(Boolean));
+}
+
+function clientIp(req) {
+  return String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '').split(',')[0].trim();
+}
+
+function setRefreshCookie(res, token) {
+  const maxAge = REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60;
+  const parts = [
+    `${REFRESH_COOKIE_NAME}=${encodeURIComponent(token)}`,
+    'Path=/api/auth',
+    'HttpOnly',
+    'SameSite=Lax',
+    `Max-Age=${maxAge}`,
+  ];
+  if (isProduction) parts.push('Secure');
+  res.setHeader('Set-Cookie', parts.join('; '));
+}
+
+function clearRefreshCookie(res) {
+  const parts = [
+    `${REFRESH_COOKIE_NAME}=`,
+    'Path=/api/auth',
+    'HttpOnly',
+    'SameSite=Lax',
+    'Max-Age=0',
+  ];
+  if (isProduction) parts.push('Secure');
+  res.setHeader('Set-Cookie', parts.join('; '));
+}
+
+async function auditAuth(action, userId, req, details = {}) {
+  try {
+    await db.create('audit_logs', {
+      id: makeId('AUD'),
+      area: 'AUTH',
+      action,
+      actorUserId: userId,
+      targetUserId: userId,
+      ip: clientIp(req),
+      userAgent: req.headers['user-agent'] || '',
+      details,
+      createdAt: formatDateTime(),
+    });
+  } catch (err) {
+    console.warn('[audit] Auth audit failed:', err.message);
+  }
+}
+
+function loginKey(req, identifier) {
+  return `${clientIp(req)}:${String(identifier || '').trim().toLowerCase()}`;
+}
+
+function assertLoginAllowed(req, identifier) {
+  const key = loginKey(req, identifier);
+  const record = loginAttempts.get(key);
+  if (!record) return true;
+  if (record.lockedUntil && record.lockedUntil > Date.now()) return false;
+  if (record.lockedUntil && record.lockedUntil <= Date.now()) loginAttempts.delete(key);
+  return true;
+}
+
+function recordLoginFailure(req, identifier) {
+  const key = loginKey(req, identifier);
+  const now = Date.now();
+  const record = loginAttempts.get(key) || { count: 0, firstAt: now, lockedUntil: 0 };
+  const withinWindow = now - record.firstAt < 15 * 60 * 1000;
+  const next = {
+    count: withinWindow ? record.count + 1 : 1,
+    firstAt: withinWindow ? record.firstAt : now,
+    lockedUntil: 0,
+  };
+  if (next.count >= 5) next.lockedUntil = now + 15 * 60 * 1000;
+  loginAttempts.set(key, next);
+}
+
+function clearLoginFailures(req, identifier) {
+  loginAttempts.delete(loginKey(req, identifier));
+}
+
+async function createAuthSession(user, req) {
+  const refreshToken = randomToken(64);
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  const session = await db.create('auth_sessions', {
+    id: makeId('SESS'),
+    userId: user.id,
+    refreshTokenHash: sha256(refreshToken),
+    ip: clientIp(req),
+    userAgent: req.headers['user-agent'] || '',
+    createdAt: now.toISOString(),
+    lastUsedAt: now.toISOString(),
+    expiresAt,
+    revokedAt: '',
+    rotatedAt: '',
   });
+  return { session, refreshToken };
+}
+
+async function getActiveAuthSession(refreshToken) {
+  if (!refreshToken) return null;
+  const rows = await db.list('auth_sessions', { refreshTokenHash: sha256(refreshToken) });
+  const session = rows[0];
+  if (!session || session.revokedAt) return null;
+  if (session.expiresAt && new Date(session.expiresAt) <= new Date()) return null;
+  return session;
+}
+
+async function rotateAuthSession(session, req) {
+  const refreshToken = randomToken(64);
+  const next = await db.update('auth_sessions', session.id, {
+    refreshTokenHash: sha256(refreshToken),
+    lastUsedAt: formatDateTime(),
+    rotatedAt: formatDateTime(),
+    ip: clientIp(req),
+    userAgent: req.headers['user-agent'] || session.userAgent || '',
+  });
+  return { session: next, refreshToken };
+}
+
+async function revokeAuthSession(sessionId, reason = 'LOGOUT') {
+  if (!sessionId) return null;
+  const existing = await db.get('auth_sessions', sessionId);
+  if (!existing || existing.revokedAt) return existing;
+  return db.update('auth_sessions', sessionId, { revokedAt: formatDateTime(), revokeReason: reason });
+}
+
+async function revokeAllUserSessions(userId, reason = 'PASSWORD_CHANGED') {
+  const sessions = await db.list('auth_sessions', { userId });
+  await Promise.all(sessions.filter((session) => !session.revokedAt).map((session) =>
+    db.update('auth_sessions', session.id, { revokedAt: formatDateTime(), revokeReason: reason })
+  ));
+}
+
+async function issueAuthResponse(req, res, user, existingSessionId = '') {
+  let sessionId = existingSessionId;
+  if (!sessionId) {
+    const { session, refreshToken } = await createAuthSession(user, req);
+    sessionId = session.id;
+    setRefreshCookie(res, refreshToken);
+  }
+  return { token: signToken(user, sessionId), user };
 }
 
 function broadcast(event) {
@@ -146,6 +337,18 @@ async function authOptional(req, _res, next) {
   if (!token) return next();
   try {
     const payload = verifyToken(token);
+    if (payload.sid) {
+      const session = await db.get('auth_sessions', payload.sid);
+      if (
+        !session ||
+        session.revokedAt ||
+        String(session.userId) !== String(payload.id) ||
+        (session.expiresAt && new Date(session.expiresAt) <= new Date())
+      ) {
+        throw new Error('Session expired');
+      }
+      req.authSessionId = session.id;
+    }
     const user = db ? await db.getUser(payload.id) : null;
     req.user = user
       ? {
@@ -772,16 +975,23 @@ app.post('/api/auth/login', async (req, res) => {
     if (!valid) return res.status(400).json({ error });
     const identifier = String(data.identifier || '').trim();
     const password = String(data.password || '');
+    if (!assertLoginAllowed(req, identifier)) {
+      return res.status(429).json({ error: 'Too many login attempts. Please try again after 15 minutes.' });
+    }
     const row = await db.findUserByIdentifier(identifier);
     if (!row) {
-      return res.status(401).json({ error: 'No account found for this mobile / email / ID.' });
+      recordLoginFailure(req, identifier);
+      return res.status(401).json({ error: 'Invalid mobile/email/ID or password.' });
     }
     const ok = verifyPassword(password, row.password_hash);
     if (!ok) {
-      return res.status(401).json({ error: 'Incorrect password. Please try again.' });
+      recordLoginFailure(req, identifier);
+      return res.status(401).json({ error: 'Invalid mobile/email/ID or password.' });
     }
     const user = await db.getUser(row.id);
-    res.json({ token: signToken(user), user });
+    clearLoginFailures(req, identifier);
+    await auditAuth('LOGIN_SUCCESS', user.id, req);
+    res.json(await issueAuthResponse(req, res, user));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Login failed.' });
@@ -995,8 +1205,9 @@ app.post('/api/auth/register', async (req, res) => {
       }
     }
 
+    await auditAuth('REGISTER_SUCCESS', user.id, req, { role });
     res.json({
-      token: signToken(user),
+      ...(await issueAuthResponse(req, res, user)),
       user,
       patientId,
       referenceNo: `AV-REG-${Math.floor(100000 + Math.random() * 900000)}`,
@@ -1034,11 +1245,17 @@ app.get('/api/auth/me', async (req, res) => {
   if (!req.user) return res.status(401).json({ error: 'Not signed in.' });
   const user = await db.getUser(req.user.id);
   if (!user) return res.status(401).json({ error: 'User not found.' });
-  res.json({ user });
+  if (!req.authSessionId) {
+    return res.json(await issueAuthResponse(req, res, user));
+  }
+  res.json({ user, token: signToken(user, req.authSessionId) });
 });
 
 app.patch('/api/auth/me', authRequired, async (req, res) => {
   const patch = { ...(req.body || {}) };
+  if (patch.password || patch.password_hash) {
+    return res.status(400).json({ error: 'Use the password reset/change-password flow to update passwords.' });
+  }
   if (patch.primaryRole && !userRolesOf(req.user).includes(patch.primaryRole) && !userHasRole(req.user, 'admin')) {
     return res.status(403).json({ error: 'You do not have that role.' });
   }
@@ -1055,7 +1272,7 @@ app.patch('/api/auth/me', authRequired, async (req, res) => {
       });
     }
   }
-  res.json({ user, token: signToken(user) });
+  res.json({ user, token: signToken(user, req.authSessionId || '') });
 });
 
 app.get('/api/search/hospitals', async (req, res) => {
@@ -1098,6 +1315,50 @@ app.get('/api/bootstrap', async (req, res) => {
 
 app.get('/api/stats', async (_req, res) => {
   res.json({ mode: db.mode(), mongodb: db.mongoReady(), ...(await db.counts()) });
+});
+
+app.post('/api/auth/refresh', async (req, res) => {
+  try {
+    const refreshToken = parseCookies(req)[REFRESH_COOKIE_NAME];
+    const session = await getActiveAuthSession(refreshToken);
+    if (!session) {
+      clearRefreshCookie(res);
+      return res.status(401).json({ error: 'Session expired. Please sign in again.' });
+    }
+    const user = await db.getUser(session.userId);
+    if (!user) {
+      await revokeAuthSession(session.id, 'USER_NOT_FOUND');
+      clearRefreshCookie(res);
+      return res.status(401).json({ error: 'Session expired. Please sign in again.' });
+    }
+    const rotated = await rotateAuthSession(session, req);
+    setRefreshCookie(res, rotated.refreshToken);
+    res.json({ token: signToken(user, rotated.session.id), user });
+  } catch (err) {
+    console.error(err);
+    clearRefreshCookie(res);
+    res.status(401).json({ error: 'Session expired. Please sign in again.' });
+  }
+});
+
+app.post('/api/auth/logout', async (req, res) => {
+  try {
+    const refreshToken = parseCookies(req)[REFRESH_COOKIE_NAME];
+    const session = await getActiveAuthSession(refreshToken);
+    if (session) {
+      await revokeAuthSession(session.id, 'LOGOUT');
+      await auditAuth('LOGOUT', session.userId, req, { sessionId: session.id });
+    } else if (req.authSessionId) {
+      await revokeAuthSession(req.authSessionId, 'LOGOUT');
+      await auditAuth('LOGOUT', req.user?.id, req, { sessionId: req.authSessionId });
+    }
+    clearRefreshCookie(res);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    clearRefreshCookie(res);
+    res.json({ ok: true });
+  }
 });
 
 app.get('/api/fund360/account', authRequired, async (req, res) => {
@@ -2013,6 +2274,7 @@ app.post('/api/users', adminRequired, async (req, res) => {
 
 app.patch('/api/users/:id', adminRequired, async (req, res) => {
   const patch = { ...(req.body || {}) };
+  const passwordChanged = Boolean(patch.password);
   if (patch.password) {
     patch.password_hash = hashPassword(String(patch.password));
     delete patch.password;
@@ -2021,6 +2283,10 @@ app.patch('/api/users/:id', adminRequired, async (req, res) => {
   if (patch.primaryRole) patch.role = patch.primaryRole;
   const user = await db.updateUser(req.params.id, patch);
   if (!user) return res.status(404).json({ error: 'User not found.' });
+  if (passwordChanged) {
+    await revokeAllUserSessions(req.params.id, 'ADMIN_PASSWORD_RESET');
+    await auditAuth('ADMIN_PASSWORD_RESET', req.params.id, req, { adminId: req.user.id });
+  }
   res.json({ item: user });
 });
 
@@ -2533,6 +2799,7 @@ app.post('/api/records/:collection', async (req, res) => {
       fund360_service_participations: 'F360S',
       fund360_celebration_preferences: 'F360C',
       fund360_eligibility_records: 'F360E',
+      auth_sessions: 'SESS',
       audit_logs: 'AUD',
     };
     payload.id = makeId(prefixes[collection] || 'REC');
