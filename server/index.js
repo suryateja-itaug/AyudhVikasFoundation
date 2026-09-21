@@ -1352,7 +1352,10 @@ app.get('/api/stats', async (_req, res) => {
   res.json({ mode: db.mode(), mongodb: db.mongoReady(), ...(await db.counts()) });
 });
 
-app.post('/api/auth/refresh', async (req, res) => {
+app.all('/api/auth/refresh', async (req, res) => {
+  if (req.method !== 'GET' && req.method !== 'POST' && req.method !== 'HEAD') {
+    return res.status(405).json({ error: 'Method not allowed.' });
+  }
   try {
     const refreshToken = parseCookies(req)[REFRESH_COOKIE_NAME];
     const session = await getActiveAuthSession(refreshToken);
