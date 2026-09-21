@@ -100,6 +100,7 @@ function configuredOrigins() {
     process.env.APP_URL,
     process.env.PUBLIC_APP_URL,
     process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '',
+    'https://ayudh-vikas-foundation.vercel.app',
     'http://localhost:3000',
     'http://localhost:5173',
   ];
@@ -112,8 +113,7 @@ function configuredOrigins() {
 }
 
 const ALLOWED_ORIGINS = configuredOrigins();
-const ALLOW_VERCEL_PREVIEWS = String(process.env.ALLOW_VERCEL_PREVIEWS || '').toLowerCase() === 'true'
-  || [...ALLOWED_ORIGINS].some((origin) => origin.endsWith('.vercel.app'));
+const ALLOW_VERCEL_PREVIEWS = String(process.env.ALLOW_VERCEL_PREVIEWS || 'true').toLowerCase() !== 'false';
 
 function originAllowed(origin) {
   const normalized = normalizeOrigin(origin);
