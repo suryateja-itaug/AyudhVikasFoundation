@@ -289,7 +289,7 @@ export const HomeServicePage: React.FC<HomeServicePageProps> = ({
             {/* Navigation Links */}
             <nav className="hidden lg:flex items-center gap-6 text-xs font-semibold text-slate-700">
               <button onClick={onBackToHome} className="hover:text-emerald-700 cursor-pointer">Home</button>
-              <button onClick={onBackToHome} className="hover:text-emerald-700 cursor-pointer">About Us</button>
+              <button onClick={onBackToHome} className="hover:text-emerald-700 cursor-pointer">Discover Av</button>
               
               {/* Services Dropdown */}
               <div className="relative">

@@ -301,7 +301,7 @@ export const LabTestsPage: React.FC<LabTestsPageProps> = ({
               {/* Center Navigation Links */}
               <nav className="hidden lg:flex items-center gap-6 text-xs font-bold text-slate-700">
                 <button onClick={onBackToHome} className="hover:text-emerald-600 transition-colors cursor-pointer">Home</button>
-                <button onClick={onBackToHome} className="hover:text-emerald-600 transition-colors cursor-pointer">About Us</button>
+                <button onClick={onBackToHome} className="hover:text-emerald-600 transition-colors cursor-pointer">Discover Av</button>
                 <button onClick={onBackToHome} className="hover:text-emerald-600 transition-colors cursor-pointer">Services</button>
                 <button onClick={() => onOpenModal('book_appointment')} className="hover:text-emerald-600 transition-colors cursor-pointer">Doctors</button>
                 <button onClick={onBackToHome} className="hover:text-emerald-600 transition-colors cursor-pointer">Hospitals</button>
