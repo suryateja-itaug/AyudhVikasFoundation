@@ -1,6 +1,12 @@
 import { beginApiActivity, endApiActivity } from './apiActivity';
 
 const TOKEN_KEY = 'ayudh_token';
+const API_BASE = String(import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
+
+export function apiUrl(path: string) {
+  const normalized = path.startsWith('/') ? path : `/${path}`;
+  return `${API_BASE}${normalized}`;
+}
 let accessToken: string | null = (() => {
   try {
     return localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY);
@@ -17,8 +23,13 @@ export function getToken(): string | null {
 export function setToken(token: string | null) {
   accessToken = token;
   try {
-    localStorage.removeItem(TOKEN_KEY);
-    sessionStorage.removeItem(TOKEN_KEY);
+    if (token) {
+      sessionStorage.setItem(TOKEN_KEY, token);
+      localStorage.removeItem(TOKEN_KEY);
+    } else {
+      localStorage.removeItem(TOKEN_KEY);
+      sessionStorage.removeItem(TOKEN_KEY);
+    }
   } catch {
     /* ignore */
   }
@@ -47,7 +58,7 @@ async function refreshAccessToken() {
 }
 
 async function doRefreshAccessToken() {
-  const res = await fetch('/api/auth/refresh', {
+  const res = await fetch(apiUrl('/api/auth/refresh'), {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
@@ -79,7 +90,7 @@ async function request<T>(path: string, options: RequestInit = {}, retry = true)
   if (token) headers.Authorization = `Bearer ${token}`;
 
   try {
-    const res = await fetch(path, { ...options, headers, credentials: 'include' });
+    const res = await fetch(apiUrl(path), { ...options, headers, credentials: 'include' });
     const text = await res.text();
     let data: any = {};
     try {
