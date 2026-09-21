@@ -69,7 +69,7 @@ export const Footer: React.FC<FooterProps> = ({ onOpenModal, setActiveTab, onSig
               QUICK LINKS
             </h4>
             <ul className="space-y-1.5 text-[11px]">
-              <li><button onClick={() => setActiveTab('about')} className="hover:text-emerald-400 transition-colors">About Us</button></li>
+              <li><button onClick={() => setActiveTab('about')} className="hover:text-emerald-400 transition-colors">Discover Av</button></li>
               <li><button onClick={() => setActiveTab('services')} className="hover:text-emerald-400 transition-colors">Services</button></li>
               <li><button onClick={() => setActiveTab('hospitals')} className="hover:text-emerald-400 transition-colors">Partner Hospitals</button></li>
               <li><button onClick={() => setActiveTab('doctors')} className="hover:text-emerald-400 transition-colors">Doctors</button></li>

@@ -11,77 +11,11 @@ import {
   Stethoscope,
   Users,
 } from 'lucide-react';
-import chiefAdvisorImage from '../assets/images/about-chief-advisor.jpg';
-import directorsImage from '../assets/images/about-directors.jpg';
 import ecosystemHeroImage from '../assets/images/ayudh-ecosystem-hero.png';
-import healthcareImage from '../assets/images/service_deep_cleaning_1784719519754.jpg';
-import communityImage from '../assets/images/service_corporate_staffing_1784719493174.jpg';
-import poshalaNareshImage from '../assets/images/poshala-naresh.jpg';
-import jannuRajuImage from '../assets/images/jannu-raju.jpg';
+import purposeCareImage from '../assets/images/discover-purpose-care.jpg';
+import visionMissionImage from '../assets/images/discover-vision-mission.jpg';
+import sathyaSaiBabaImage from '../assets/images/sathya-sai-baba.jpg';
 
-
-const leadershipProfiles = [
-  {
-    name: 'M. Vijender, MA, MBA, (LLB)',
-    role: 'Honourable Director',
-    image: directorsImage,
-    alt: 'M. Vijender, Honourable Director',
-    crop: { backgroundSize: '335% auto', backgroundPosition: '4% 44%' },
-    summary:
-      'Mr. Vijender is the Managing Director of Ayudh Vikas. With an MBA background and strong leadership skills, he drives the organization with a clear vision of delivering reliable manpower solutions, professional cleaning services and impactful healthcare initiatives. His focus on innovation, integrity and customer satisfaction continues to guide the company towards sustainable growth and social impact.',
-    highlights: ['MBA-backed leadership', 'Focus on innovation and integrity', 'Customer satisfaction and sustainable growth'],
-  },
-  {
-    name: 'Allam Ashok',
-    role: 'Director',
-    image: directorsImage,
-    alt: 'Allam Ashok, Director',
-    crop: { backgroundSize: '335% auto', backgroundPosition: '50% 44%' },
-    summary:
-      'Mr. Allam Ashok serves as a Director and plays a key role in administration, project coordination and the successful execution of organizational initiatives. His dedication, discipline and commitment to teamwork help strengthen operational efficiency and contribute significantly to the organization’s mission and long-term success.',
-    highlights: ['Administration and coordination', 'Team discipline and commitment', 'Operational efficiency and long-term success'],
-  },
-  {
-    name: 'Govindu Vinay Kumar',
-    role: 'Director',
-    image: directorsImage,
-    alt: 'Govindu Vinay Kumar, Director',
-    crop: { backgroundSize: '335% auto', backgroundPosition: '95% 42%' },
-    summary:
-      'Mr. Govindu Vinay Kumar serves as a Director and is responsible for financial planning, budgeting and maintaining transparency in all financial operations. His strategic approach and strong financial management ensure the organization’s stability, accountability and sustainable development.',
-    highlights: ['Financial planning and budgeting', 'Transparent operations', 'Strategic financial stability'],
-  },
-  {
-    name: 'Poshala Naresh M.PHAM (LLB)',
-    role: 'Director',
-    image: poshalaNareshImage,
-    alt: 'Poshala Naresh, Director',
-    crop: { backgroundSize: 'cover', backgroundPosition: 'center 24%' },
-    summary:
-      'Mr. Poshala Naresh brings a valuable combination of pharmacy knowledge, legal understanding and public-service commitment to Ayudh Vikas Foundation. His multidisciplinary background supports the organization in healthcare awareness, ethical operations, compliance-oriented planning and responsible community service initiatives.',
-    highlights: ['Pharmacy and legal perspective', 'Healthcare awareness support', 'Ethical and responsible planning'],
-  },
-  {
-    name: 'Jannu Raju',
-    role: 'Operations Director',
-    image: jannuRajuImage,
-    alt: 'Jannu Raju, Operations Director',
-    crop: { backgroundSize: 'cover', backgroundPosition: 'center 20%' },
-    summary:
-      'Mr. Jannu Raju serves as Operations Director and supports the day-to-day coordination, execution and monitoring of Ayudh Vikas Foundation activities. His operational focus helps strengthen field-level implementation, team coordination, service delivery and timely follow-up across community and healthcare support programmes.',
-    highlights: ['Operational coordination', 'Field execution and follow-up', 'Service delivery management'],
-  },
-  {
-    name: 'Dr. V. Ravinder',
-    role: 'Chief Advisor',
-    image: chiefAdvisorImage,
-    alt: 'Dr. V. Ravinder, Chief Advisor',
-    crop: { backgroundSize: '105% auto', backgroundPosition: '20% 9%' },
-    summary:
-      'Dr. V. Ravinder serves as the Chief Advisor of Ayudh Vikas. With his vast experience and valuable guidance, he supports the organization in strategic decision-making, policy development and overall growth. His wisdom and vision continue to inspire the team and strengthen our commitment to serve the community.',
-    highlights: ['Strategic guidance', 'Policy development', 'Community-focused leadership'],
-  },
-];
 
 const foundationServices = [
   {
@@ -186,16 +120,32 @@ const FoundationStory: React.FC = () => (
           </p>
         </div>
 
-        <div className="grid gap-4">
-          <div className="rounded-2xl border border-white/10 bg-white/10 p-6 backdrop-blur-md">
-            <HeartHandshake className="h-9 w-9 text-amber-300" />
-            <h2 className="mt-4 text-2xl font-black">Inspired by Sri Sathya Sai Baba</h2>
-            <p className="mt-3 text-sm leading-7 text-slate-200">
-              AVF draws inspiration from love, compassion, selfless service and humanity. The values of Love All, Serve All and Service to Man is Service to God guide its social service approach.
-            </p>
-            <p className="mt-3 text-sm leading-7 text-slate-300">
-              ప్రేమ, కరుణ, నిస్వార్థ సేవ మరియు మానవత్వం వంటి విలువలు ప్రజలకు గౌరవంతో, వినయంతో మరియు ఎటువంటి వివక్ష లేకుండా సేవ చేయడానికి మాకు స్ఫూర్తినిస్తున్నాయి.
-            </p>
+        <div className="grid gap-4 lg:self-center">
+          <div className="overflow-hidden rounded-2xl border border-amber-300/25 bg-white/10 shadow-2xl shadow-amber-950/20 backdrop-blur-md">
+            <div className="relative aspect-[16/9] overflow-hidden">
+              <img
+                src={sathyaSaiBabaImage}
+                alt="Sri Sathya Sai Baba"
+                className="absolute inset-0 h-full w-full object-cover object-center"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/35 to-amber-200/10" />
+              <div className="absolute bottom-0 left-0 right-0 p-5">
+                <div className="inline-flex items-center gap-2 rounded-full border border-amber-200/40 bg-amber-200/15 px-3 py-2 text-xs font-black uppercase tracking-[0.18em] text-amber-100 backdrop-blur">
+                  <HeartHandshake className="h-4 w-4" />
+                  Love All, Serve All
+                </div>
+              </div>
+            </div>
+            <div className="p-5 sm:p-6">
+              <HeartHandshake className="h-9 w-9 text-amber-300" />
+              <h2 className="mt-4 text-2xl font-black">Inspired by Satya Sai Baba</h2>
+              <p className="mt-3 text-sm leading-7 text-slate-200">
+                AVF draws inspiration from love, compassion, selfless service and humanity. The values of Love All, Serve All and Service to Man is Service to God guide its social service approach.
+              </p>
+              <p className="mt-3 text-sm leading-7 text-slate-300">
+                ప్రేమ, కరుణ, నిస్వార్థ సేవ మరియు మానవత్వం వంటి విలువలు ప్రజలకు గౌరవంతో, వినయంతో మరియు ఎటువంటి వివక్ష లేకుండా సేవ చేయడానికి మాకు స్ఫూర్తినిస్తున్నాయి.
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -204,7 +154,7 @@ const FoundationStory: React.FC = () => (
     <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6 lg:px-8">
       <div className="grid gap-6 lg:grid-cols-2">
         <article className="overflow-hidden rounded-2xl border border-white/10 bg-slate-900">
-          <img src={healthcareImage} alt="Healthcare and community support" className="h-56 w-full object-cover" />
+          <img src={purposeCareImage} alt="Volunteers and healthcare workers supporting families at a community care camp" className="h-56 w-full object-cover" />
           <div className="p-6">
             <h2 className="text-2xl font-black">Our Purpose | మా లక్ష్యం</h2>
             <p className="mt-4 text-sm leading-7 text-slate-300">
@@ -217,7 +167,7 @@ const FoundationStory: React.FC = () => (
         </article>
 
         <article className="overflow-hidden rounded-2xl border border-white/10 bg-slate-900">
-          <img src={communityImage} alt="Community development and teamwork" className="h-56 w-full object-cover" />
+          <img src={visionMissionImage} alt="Ayudh Vikas team planning healthcare, education and community outreach initiatives" className="h-56 w-full object-cover" />
           <div className="p-6">
             <h2 className="text-2xl font-black">Vision & Mission | దృష్టి & కార్యాచరణ</h2>
             <p className="mt-4 text-sm leading-7 text-slate-300">
@@ -395,70 +345,6 @@ const Flipbook: React.FC = () => (
 export const AboutUs: React.FC = () => (
   <>
     <FoundationStory />
-    <section className="bg-slate-950 px-4 py-14 text-white sm:py-18 lg:py-20">
-      <div className="mx-auto max-w-6xl">
-        <div className="max-w-3xl">
-          <span className="inline-flex rounded-full border border-amber-300/30 bg-amber-300/10 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-amber-200">
-            Leadership Team
-          </span>
-          <h1 className="mt-5 text-3xl font-black tracking-tight sm:text-4xl lg:text-5xl">
-            Guided by vision. Driven by purpose.
-          </h1>
-          <p className="mt-4 text-sm leading-7 text-slate-300 sm:text-base">
-            Meet the leadership behind Ayudh Vikas Manpower, Cleaning, and Healthcare services. Each profile is presented with the person image beside their role, responsibility, and contribution.
-          </p>
-        </div>
-
-        <div className="mt-10 space-y-5">
-          {leadershipProfiles.map((profile) => (
-            <article
-              key={profile.name}
-              className="grid overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] shadow-2xl shadow-slate-950/30 backdrop-blur md:grid-cols-[18rem_1fr]"
-            >
-              {profile.image ? (
-                <div
-                  className="min-h-72 bg-slate-900 bg-no-repeat md:min-h-full"
-                  style={{ backgroundImage: `url(${profile.image})`, ...('crop' in profile ? profile.crop : {}) }}
-                  role="img"
-                  aria-label={profile.alt}
-                />
-              ) : (
-                <div
-                  className="flex min-h-72 flex-col items-center justify-center bg-slate-900 px-6 text-center md:min-h-full"
-                  role="img"
-                  aria-label={`${profile.name} photo space`}
-                >
-                  <div className="flex h-28 w-28 items-center justify-center rounded-full border border-amber-300/30 bg-amber-300/10 text-3xl font-black text-amber-200">
-                    {profile.name.split(' ').slice(0, 2).map((part) => part[0]).join('')}
-                  </div>
-                  <div className="mt-5 text-xs font-black uppercase tracking-[0.18em] text-amber-200">Photo space reserved</div>
-                  <p className="mt-2 max-w-48 text-xs font-semibold leading-5 text-slate-400">Image will be added after you provide the profile photo.</p>
-                </div>
-              )}
-
-              <div className="flex flex-col justify-center p-6 sm:p-8 lg:p-10">
-                <div className="flex flex-wrap items-center gap-3">
-                  <span className="rounded-full bg-amber-300 px-3 py-1 text-xs font-black uppercase tracking-wide text-slate-950">
-                    {profile.role}
-                  </span>
-                  <span className="h-px min-w-12 flex-1 bg-gradient-to-r from-amber-300/70 to-transparent" />
-                </div>
-                <h2 className="mt-4 text-2xl font-black tracking-tight text-white sm:text-3xl">{profile.name}</h2>
-                <p className="mt-4 max-w-4xl text-sm leading-7 text-slate-300 sm:text-base lg:leading-8">{profile.summary}</p>
-
-                <div className="mt-6 grid gap-3 sm:grid-cols-3">
-                  {profile.highlights.map((highlight) => (
-                    <div key={highlight} className="rounded-xl border border-white/10 bg-slate-900/80 px-4 py-3 text-sm font-bold text-slate-100">
-                      {highlight}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </article>
-          ))}
-        </div>
-      </div>
-    </section>
     <Flipbook />
   </>
 );

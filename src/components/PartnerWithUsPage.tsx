@@ -164,7 +164,7 @@ export const PartnerWithUsPage: React.FC<PartnerWithUsPageProps> = ({
               HOME
             </button>
             <button onClick={onBackToHome} className="hover:text-emerald-400 px-2 py-1 rounded transition-colors cursor-pointer">
-              ABOUT US
+              DISCOVER AV
             </button>
             <button onClick={onBackToHome} className="hover:text-emerald-400 px-2 py-1 rounded transition-colors cursor-pointer">
               SERVICES
@@ -725,7 +725,7 @@ export const PartnerWithUsPage: React.FC<PartnerWithUsPageProps> = ({
                   </h4>
                   <ul className="space-y-1 pt-2 text-[11px] text-slate-300 font-medium">
                     <li><button onClick={onBackToHome} className="hover:text-emerald-400 transition-colors">Home</button></li>
-                    <li><button onClick={onBackToHome} className="hover:text-emerald-400 transition-colors">About Us</button></li>
+                    <li><button onClick={onBackToHome} className="hover:text-emerald-400 transition-colors">Discover Av</button></li>
                     <li><button onClick={onBackToHome} className="hover:text-emerald-400 transition-colors">Services</button></li>
                     <li><button onClick={() => {}} className="hover:text-emerald-400 transition-colors">Partner Hospitals</button></li>
                     <li><button onClick={() => {}} className="hover:text-emerald-400 transition-colors">Membership</button></li>

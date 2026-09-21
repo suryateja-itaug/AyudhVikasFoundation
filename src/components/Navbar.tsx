@@ -20,7 +20,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenModal, activeTab, setActiv
 
   const navItems = [
     { label: 'HOME', id: 'home' },
-    { label: 'ABOUT US', id: 'about' },
+    { label: 'DISCOVER AV', id: 'about' },
     { label: 'SERVICES', id: 'services', hasDropdown: true },
     { label: 'HEALTH CAMPS', id: 'camps' },
     { label: 'MEMBERSHIP', id: 'membership' },
